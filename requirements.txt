@@ -1,0 +1,24 @@
+pennylane
+tensorflow
+torch
+sklearn
+torchvision 
+torchaudio
+
+
+# music
+librosa
+
+# other
+tabulate
+
+# default
+ipykernel
+numpy
+pandas
+matplotlib
+seaborn
+jupyterlab
+
+# formatting
+black
