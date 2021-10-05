@@ -13,7 +13,7 @@ librosa
 tabulate
 
 # default
-ipykernel
+ipykernel==5.5.5 # can use latest in a few weeks again
 numpy
 pandas
 matplotlib

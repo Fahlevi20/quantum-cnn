@@ -50,9 +50,204 @@ class Layer:
         self.layer_order = layer_order
 
 
+# TODO sort out imports
+import os
+from operator import mod
+import pandas as pd
+import pennylane as qml
+import circuit_presets
+from pennylane import numpy as np
+
+from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
+from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import confusion_matrix
+
+# Custom
+from data_utility import DataUtility
+from circuit_presets import c_1, c_2, c_3, p_1, p_2, p_3
+import embedding
+
+DEVICE = qml.device("default.qubit", wires=8)
+
+
+@qml.qnode(DEVICE)
+def model(data, params, embedding_type, qcnn_structure=None, cost_fn="cross_entropy"):
+    embedding.data_embedding(data, embedding_type=embedding_type)
+    qcnn_structure.evaluate(params)
+    # TODO where does 4 come from / paramaterize?
+    if cost_fn == "mse":
+        result = qml.expval(qml.PauliZ(4))
+    elif cost_fn == "cross_entropy":
+        result = qml.probs(wires=4)
+    return result
+
+
+def cost(params, X_batch, y_batch, embedding_type, qcnn_structure, cost_fn):
+    # Different for hierarchical
+    y_hat = [
+        model(x, params, embedding_type, qcnn_structure=qcnn_structure, cost_fn=cost_fn)
+        for x in X_batch
+    ]
+
+    if cost_fn == "mse":
+        loss = square_loss(y_batch, y_hat)
+    elif cost_fn == "cross_entropy":
+        loss = cross_entropy(y_batch, y_hat)
+
+    return loss
+
+
+def store_results(
+    result_path,
+    experiment_content,
+    model_name,
+    params_history,
+    loss_train_history,
+    loss_test_history,
+    y_test,
+    y_hat,
+    y_hat_class,
+    cf_matrix,
+):
+    """
+    Method to store results to a desired path
+    """
+    if not os.path.exists(result_path):
+        os.makedirs(result_path)
+
+    # Give expirment context
+    file = open(f"{result_path}/experiment.txt", "w+")
+    file.write(experiment_content)
+    file.close()
+
+    print(f"Storing resuts to:\n {result_path}")
+    pd.DataFrame(params_history).to_csv(f"{result_path}/{model_name}-param-history.csv")
+    pd.DataFrame(loss_train_history).to_csv(
+        f"{result_path}/{model_name}-loss-train-history.csv", index=False,
+    )
+    pd.DataFrame(loss_test_history).to_csv(
+        f"{result_path}/{model_name}-loss-test-history.csv", index=False,
+    )
+    pd.DataFrame(y_hat).to_csv(f"{result_path}/{model_name}-yhat.csv")
+    pd.DataFrame({"y_test": y_test, "yhat_class": y_hat_class}).to_csv(
+        f"{result_path}/{model_name}-yhat-class-vs-y-test.csv"
+    )
+    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_name}-confusion-matrix.csv")
+
+
+def train_qcnn(
+    qcnn_structure,
+    embedding_type,
+    pipeline,
+    raw,
+    data_utility,
+    model_name="dummy",
+    experiment_content="dummy",
+    result_path=None,
+    steps=200,
+    learning_rate=0.01,
+    batch_size=25,
+    cost_fn="cross_entropy",
+):
+    # Define optimizer
+    opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate)
+
+    # Preprocessing
+    X_train, y_train, Xy_test, X_test, y_test, Xy_test = data_utility.get_samples(
+        raw, row_samples=["train", "test"]
+    )
+    pipeline.fit(X_train, y_train)
+    X_train_tfd = pipeline.transform(X_train)
+    X_test_tfd = pipeline.transform(X_test)
+
+    # Initialize  paramaters
+    params = np.random.randn(qcnn_structure.paramater_count)
+    loss_train_history = {"Iteration": [], "Cost": []}
+    loss_test_history = {"Iteration": [], "Cost": []}
+    params_history = {}
+
+    for it in range(steps):
+        # Sample records for trainig run, TODO move to data_utility
+        batch_train_index = np.random.randint(X_train_tfd.shape[0], size=batch_size)
+        X_train_batch = X_train_tfd[batch_train_index]
+        y_train_batch = np.array(y_train)[batch_train_index]
+
+        # Sample test
+        batch_test_index = np.random.randint(X_test_tfd.shape[0], size=batch_size)
+        X_test_batch = X_test_tfd[batch_test_index]
+        y_test_batch = np.array(y_test)[batch_test_index]
+
+        # Run model and get cost
+        params, cost_train = opt.step_and_cost(
+            lambda v: cost(
+                v,
+                X_train_batch,
+                y_train_batch,
+                embedding_type,
+                qcnn_structure,
+                cost_fn,
+            ),
+            params,
+        )
+        cost_test = cost(
+            params,
+            X_test_batch,
+            y_test_batch,
+            embedding_type,
+            qcnn_structure,
+            cost_fn,
+        )
+
+        # Store iteration results
+        params_history[it] = params
+        loss_train_history["Iteration"].append(it)
+        loss_train_history["Cost"].append(cost_train)
+        loss_test_history["Iteration"].append(it)
+        loss_test_history["Cost"].append(cost_test)
+
+    # Save results TODO pick best
+    best_iteration = loss_train_history["Iteration"][
+        np.argmin(loss_train_history["Cost"])
+    ]
+    best_params = params_history[best_iteration]
+    y_hat = [
+        model(x, best_params, embedding_type, qcnn_structure=qcnn_structure, cost_fn=cost_fn)
+        for x in X_test_tfd
+    ]
+    y_hat_class = get_y_label(y_hat)
+    cf_matrix = confusion_matrix(y_test, y_hat_class)
+
+    # store_results if path is provided
+    if result_path:
+        store_results(
+            result_path,
+            experiment_content,
+            model_name,
+            params_history,
+            loss_train_history,
+            loss_test_history,
+            y_hat,
+            y_hat_class,
+            y_test,
+            cf_matrix,
+        )
+    return (
+        y_hat,
+        y_hat_class,
+        loss_train_history,
+        loss_test_history,
+        params_history,
+        cf_matrix,
+    )
+
+
 # TODO move to model evaluation
 import autograd.numpy as anp
 import numpy as np
+
+
 def square_loss(labels, predictions):
     loss = 0
     for l, p in zip(labels, predictions):
@@ -101,5 +296,7 @@ def accuracy_test(predictions, labels, cost_fn, binary=False):
 
 def get_y_label(y_hat):
     return [np.where(x == max(x))[0][0] for x in y_hat]
+
+
 # qcnn_generic["conv_layer"](2)
 # %%

@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import librosa.display
 
 
-def load_image_data(path, classes, target):
+def load_audio_data(path, classes, target):
     Xy = pd.read_csv(path)
 
     # returns "classical|pop" etc depending on class selection
@@ -57,3 +57,4 @@ def load_image_data(path, classes, target):
     X_test = pca.transform(X_test)
 
     return X_train, y_train, X_test, y_test
+

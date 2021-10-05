@@ -204,28 +204,44 @@ def gather_results(
                     embedding_class = embeded_full_name
                     embedding_permutation = 1
                 model_name = f"{reduction_method}-{reduction_size}-{embeded_full_name}-{circ_name}"
-                result_files = os.listdir(f"../results/")
+                result_files = os.listdir(result_path)
                 if f"{model_name}-param-history.csv" in result_files:
                     # print(model_name)
                     # TODO implement loss history data combination
                     cf_matrix = pd.read_csv(
                         f"{result_path}/{model_name}-confusion-matrix.csv", index_col=0
                     )
-                    loss_history = pd.read_csv(
-                        f"{result_path}/{model_name}-loss-history.csv"
-                    )
-                    loss_test_history = pd.read_csv(
-                        f"{result_path}/{model_name}-loss-test-history.csv"
-                    )
-                    loss_history.columns = ["Iteration", "Train_Cost"]
-                    loss_test_history.columns = ["Iteration", "Test_Cost"]
-                    estimate_vs_class = pd.read_csv(
-                        f"{result_path}/{model_name}-yhat-class-vs-y-test.csv",
-                        index_col=0,
-                    )
-                    y_hat = pd.read_csv(
-                        f"{result_path}/{model_name}-yhat.csv", index_col=0
-                    )
+                    # TODO improve this is just to make it backwards compatible with expirement 0
+                    if f"{result_path}/{model_name}-loss-history.csv" in result_files:
+                        loss_train_history = pd.read_csv(
+                            f"{result_path}/{model_name}-loss-history.csv"
+                        )
+                        loss_test_history = pd.read_csv(
+                            f"{result_path}/{model_name}-loss-test-history.csv"
+                        )
+                        loss_train_history.columns = ["Iteration", "Train_Cost"]
+                        loss_test_history.columns = ["Iteration", "Test_Cost"]
+                    else:
+                        loss_train_history = pd.read_csv(
+                            f"{result_path}/{model_name}-loss-train-history.csv"
+                        )
+                        loss_test_history = pd.read_csv(
+                            f"{result_path}/{model_name}-loss-test-history.csv"
+                        )
+                        if loss_train_history.shape[1] > 2:
+                            loss_train_history.drop(loss_train_history.columns[0], inplace=True, axis=1)
+                            loss_test_history.drop(loss_test_history.columns[0], inplace=True, axis=1)
+
+                        loss_train_history.columns = ["Iteration", "Train_Cost"]
+                        loss_test_history.columns = ["Iteration", "Test_Cost"]
+
+                    # estimate_vs_class = pd.read_csv(
+                    #     f"{result_path}/{model_name}-yhat-class-vs-y-test.csv",
+                    #     index_col=0,
+                    # )
+                    # y_hat = pd.read_csv(
+                    #     f"{result_path}/{model_name}-yhat.csv", index_col=0
+                    # )
                     (
                         accuracy,
                         precision,
@@ -246,7 +262,7 @@ def gather_results(
                         "precision": precision,
                         "recall": recall,
                         "f1": f1,
-                        "loss_train_history": loss_history["Train_Cost"],
+                        "loss_train_history": loss_train_history["Train_Cost"],
                         "loss_test_history": loss_test_history["Test_Cost"],
                     }
                     result_data = result_data.append(result, ignore_index=True)
