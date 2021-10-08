@@ -212,7 +212,8 @@ def gather_results(
                         f"{result_path}/{model_name}-confusion-matrix.csv", index_col=0
                     )
                     # TODO improve this is just to make it backwards compatible with expirement 0
-                    if f"{result_path}/{model_name}-loss-history.csv" in result_files:
+                    # print(model_name)
+                    if f"{model_name}-loss-history.csv" in result_files:
                         loss_train_history = pd.read_csv(
                             f"{result_path}/{model_name}-loss-history.csv"
                         )
@@ -229,8 +230,12 @@ def gather_results(
                             f"{result_path}/{model_name}-loss-test-history.csv"
                         )
                         if loss_train_history.shape[1] > 2:
-                            loss_train_history.drop(loss_train_history.columns[0], inplace=True, axis=1)
-                            loss_test_history.drop(loss_test_history.columns[0], inplace=True, axis=1)
+                            loss_train_history.drop(
+                                loss_train_history.columns[0], inplace=True, axis=1
+                            )
+                            loss_test_history.drop(
+                                loss_test_history.columns[0], inplace=True, axis=1
+                            )
 
                         loss_train_history.columns = ["Iteration", "Train_Cost"]
                         loss_test_history.columns = ["Iteration", "Test_Cost"]
@@ -268,3 +273,24 @@ def gather_results(
                     result_data = result_data.append(result, ignore_index=True)
 
     return result_data
+
+
+# %%
+def get_file_content(file_path):
+    """
+    Returns the text contained in the text file provided as a path, ex:
+    file_content = get_file_content("../experiments/13/experiment.txt")
+    Args:
+        info_path (str): path to text file
+
+    Returns:
+        str:  contents of file
+    """
+    f = open(file_path, "r")
+    file_contents = f.read()
+    f.close()
+    return file_contents
+
+
+# get_file_content("../experiments/13/experiment.txt")
+# %%

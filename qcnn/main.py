@@ -16,7 +16,7 @@ from sklearn.metrics import confusion_matrix
 from data_utility import DataUtility
 from qcnn_structure import (
     QcnnStructure,
-    Layer,    
+    Layer,
     train_qcnn,
 )
 from circuit_presets import c_1, c_2, c_3, p_1, p_2, p_3
@@ -26,7 +26,7 @@ import embedding
 data_path = "../data/archive/Data/features_30_sec.csv"
 target = "label"
 # Predicting 1 for the last item in the list
-classes = ["pop", "classical"]
+classes = ["metal", "rock"]
 
 raw = pd.read_csv(data_path)
 # Data cleaning / focusing only on chosen classes
@@ -61,7 +61,7 @@ data_utility.row_sample["test"] = X_test.index
 embedding_options = {
     8: ["Angle"],
     12: [f"Angular-Hybrid2-{i}" for i in range(1, 5)],
-    16: [f"Amplitude-Hybrid2-{i}" for i in range(1, 5)],
+    16: [f"Amplitude-Hybrid2-{i}" for i in range(1, 5)] + ["Angle-Compact"],
     30: [f"Angular-Hybrid4-{i}" for i in range(1, 5)],
     32: [f"Amplitude-Hybrid4-{i}" for i in range(1, 5)],
 }
@@ -87,13 +87,34 @@ pooling_options = {"psatz1": 2, "psatz2": 0, "psatz3": 3}
 EXPERIMENT_PATH = "../experiments"
 # Ensure expirment doesn't get overridden
 EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
-EXPERIMENT_CONTENT = "No preprocessing. only angle gets minmax, amplitude standardized during embedding"
+# EXPERIMENT_ID = 11
+EXPERIMENT_CONTENT = (
+    f"100 iterations\n"
+    f"Embedding type Preprocessing\n"
+    f"{'-'*28}\n"
+    f"Angle\t\tminmax(0, np.pi)\n"  # f"Amplitude\tnormalized"
+    f"Classes\n"
+    f"{'-'*7}\n"
+    f"y=1\t\trock\n"
+    f"y=0\t\tmetal"
+)
 RESULT_PATH = f"{EXPERIMENT_PATH}/{EXPERIMENT_ID}"
 REDUCTION_METHOD = "pca"
 
 
-experiment_embedding_list = ["Amplitude-Hybrid4-4", "Angle", "Angular-Hybrid2-1", "Amplitude-Hybrid2-1"]
-experiment_circuit_list = ["U_5", "U_TTN"]
+# experiment_embedding_list = [
+#     "Amplitude-Hybrid4-4",
+#     "Angle",
+#     "Angular-Hybrid2-1",
+#     "Amplitude-Hybrid2-1",
+# ]
+experiment_embedding_list = [
+    # "Angle-Compact",
+    "Angle",
+    "Amplitude-Hybrid2-1",
+    "Angular-Hybrid2-1",
+]
+experiment_circuit_list = ["U_5", "U_TTN", "U_6", "U_SO4", "U_SU4", "U_15", "U_14", "U_13", "U_9"]
 # TODO make pretty
 experiment_embeddings = {
     k: set(experiment_embedding_list) & set(v)
@@ -111,12 +132,12 @@ for reduction_size, embedding_set in experiment_embeddings.items():
     for embedding_option in embedding_set:
         for circ_name, circ_param_count in experiment_circuits.items():
             # Only minmax scale if angle
-            if reduction_size in [8, 12,30]:
+            if "Ang" in embedding_option:
                 pipeline = Pipeline(
                     [
                         (
                             "scaler",
-                            preprocessing.minmax_scale(),
+                            preprocessing.MinMaxScaler([0, np.pi]),
                         ),
                         ("pca", PCA(reduction_size)),
                     ]
@@ -180,7 +201,9 @@ for reduction_size, embedding_set in experiment_embeddings.items():
 
             # Create QCNN structure
             qcnn_structure = QcnnStructure(layer_dict)
-            model_name = f"{REDUCTION_METHOD}-{reduction_size}-{embedding_option}-{circ_name}"
+            model_name = (
+                f"{REDUCTION_METHOD}-{reduction_size}-{embedding_option}-{circ_name}"
+            )
             # Train and store results
             (
                 y_hat,
@@ -198,7 +221,7 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                 experiment_content=EXPERIMENT_CONTENT,
                 model_name=model_name,
                 result_path=RESULT_PATH,
-                steps=200,
+                steps=100,
             )
 print("Experiment Done")
 

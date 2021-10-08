@@ -21,4 +21,5 @@ seaborn
 jupyterlab
 
 # formatting
+jupyterlab_code_formatter
 black
