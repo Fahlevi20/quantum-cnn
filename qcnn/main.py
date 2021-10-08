@@ -1,6 +1,7 @@
 #%%
 import itertools
 import os
+import time
 from operator import mod
 import pandas as pd
 import pennylane as qml
@@ -89,7 +90,7 @@ quantum_experiment_config = {
         ]
     },
     "train": {
-        "iterations": 100,
+        "iterations": 1,
     },
 }
 
@@ -128,6 +129,7 @@ experiment_circuits = {
 
 # Define embedding # TODO experiment function, log time taken
 print(f"Running expirement: {config['ID']}")
+model_time = {}
 for reduction_size, embedding_set in experiment_embeddings.items():
     for embedding_option in embedding_set:
         for circ_name, circ_param_count in experiment_circuits.items():
@@ -200,6 +202,7 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                 qcnn_structure = QcnnStructure(layer_dict)
                 # TODO improve
                 model_name = f"{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-{'-'.join(target_pair)}"
+                t1 = time.time()
                 # Train and store results
                 (
                     y_hat,
@@ -218,6 +221,14 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                     config,
                     model_name=model_name,
                 )
+                t2 = time.time()
+                model_time[f"{model_name}"]=t2-t1
+
+result_path = f"{quantum_experiment_config.get('path')}/{quantum_experiment_config.get('ID')}"
+# Give expirment context
+with open(f"{result_path}/experiment_time.json", "w+") as f:
+    json.dump(model_time, f,  indent=4)
+
 print("Experiment Done")
 
 # %%
