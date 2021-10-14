@@ -2,19 +2,15 @@
 import itertools
 import os
 import time
-from operator import mod
 import pandas as pd
-import pennylane as qml
-from scipy.sparse import data
 import circuit_presets
 import json
 from pennylane import numpy as np
 
-from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import confusion_matrix
+
 
 # Custom
 from data_utility import DataUtility
@@ -23,8 +19,19 @@ from qcnn_structure import (
     Layer,
     train_qcnn,
 )
-from circuit_presets import c_1, c_2, c_3, p_1, p_2, p_3
-import embedding
+from circuit_presets import (
+    filter_embedding_options,
+    c_1,
+    c_2,
+    c_3,
+    p_1,
+    p_2,
+    p_3,
+    EMBEDDING_OPTIONS,
+    CIRCUIT_OPTIONS,
+    POOLING_OPTIONS,
+)
+
 
 #%%
 data_path = "../data/archive/Data/features_30_sec.csv"
@@ -34,39 +41,13 @@ data_utility = DataUtility(raw, target=target, default_subset="modelling")
 columns_to_remove = ["filename", "length"]
 data_utility.update(columns_to_remove, "included", {"value": False, "reason": "manual"})
 
-#%%
-# Specify options
-# TODO compact + pure amplitude
-
-EMBEDDING_OPTIONS = {
-    8: ["Angle"],
-    12: [f"Angular-Hybrid2-{i}" for i in range(1, 5)],
-    16: [f"Amplitude-Hybrid2-{i}" for i in range(1, 5)] + ["Angle-Compact"],
-    30: [f"Angular-Hybrid4-{i}" for i in range(1, 5)],
-    32: [f"Amplitude-Hybrid4-{i}" for i in range(1, 5)],
-}
-
-# Name of circuit function from unitary.py along with param count
-CIRCUIT_OPTIONS = {
-    "U_TTN": 2,
-    "U_5": 10,
-    "U_6": 10,
-    "U_9": 2,
-    "U_13": 6,
-    "U_14": 6,
-    "U_15": 4,
-    "U_SO4": 6,
-    "U_SU4": 15,
-}
-
-POOLING_OPTIONS = {"psatz1": 2, "psatz2": 0, "psatz3": 3}
 
 #%%
 # Configuration
 EXPERIMENT_PATH = "../experiments"
 # Ensure experiment doesn't get overwritten
 EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
-# EXPERIMENT_ID = 11
+# EXPERIMENT_ID = 20
 
 # levels to consider
 target_levels = raw[data_utility.target].unique()
@@ -76,43 +57,28 @@ target_pairs = [target_pair for target_pair in itertools.combinations(target_lev
 quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
     "path": EXPERIMENT_PATH,
-    "data": {"target_pairs": target_pairs},
+    "data": {"target_pairs": [("pop", "classical")]},
     "type": "quantum",
     "preprocessing": {
         "reduction_method": "pca",
-        "embedding_list": [
-            "Angle",
-        ],
+        "scaler": {"angle": None, "Havlicek": "StandardScalar"},
+        "embedding_list": ["Havlicek"],
     },
-    "model": {
-        "circuit_list": [
-            "U_5",
-        ]
-    },
+    "model": {"circuit_list": ["U_5", "U_TTN", "U_6"]},
     "train": {
-        "iterations": 1,
+        "iterations": 100,
     },
+    "extra": "double:\nn_col = X.shape[0]"
+    "\nfor i in range(n_col):"
+    "\nqml.Hadamard(wires=[i])"
+    "\nfor i in range(n_col):"
+    "\nqml.RZ(X[i], wires=[i])"
+    "\nfor i in range(n_col - 1):"
+    "\nj = i + 1"
+    "\nqml.CNOT(wire=[i, j])"
+    "\nqml.RZ((np.pi - X[i]) * (np.pi - X[j]), wire=[i, j])"
+    "\nqml.CNOT(wire=[i, j])",
 }
-
-
-def filter_embedding_options(embedding_list):
-    """Method to filter out the embedding options dictionary. Removes all embeddings
-    not specified in the provided list
-
-    Args:
-        embedding_list (list(str)): list containing embedding names such as Angle or Amplitude-Hybrid-4
-
-    Returns:
-        dictionary: a subset of all possible embedding options based on the names sent through.
-    """
-    embeddings = {
-        red_size: set(config["preprocessing"]["embedding_list"]) & set(embedding_option)
-        for red_size, embedding_option in EMBEDDING_OPTIONS.items()
-        if len((set(config["preprocessing"]["embedding_list"]) & set(embedding_option)))
-        > 0
-    }
-
-    return embeddings
 # Start experiment
 
 # Get experiment config
@@ -140,7 +106,17 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                         [
                             (
                                 "scaler",
-                                preprocessing.MinMaxScaler([0, np.pi]),
+                                preprocessing.MinMaxScaler([0, np.pi / 2]),
+                            ),
+                            ("pca", PCA(reduction_size)),
+                        ]
+                    )
+                elif "Havlicek" in embedding_option:
+                    pipeline = Pipeline(
+                        [
+                            (
+                                "scaler",
+                                preprocessing.StandardScaler(),
                             ),
                             ("pca", PCA(reduction_size)),
                         ]
@@ -222,12 +198,14 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                     model_name=model_name,
                 )
                 t2 = time.time()
-                model_time[f"{model_name}"]=t2-t1
+                model_time[f"{model_name}"] = t2 - t1
 
-result_path = f"{quantum_experiment_config.get('path')}/{quantum_experiment_config.get('ID')}"
+result_path = (
+    f"{quantum_experiment_config.get('path')}/{quantum_experiment_config.get('ID')}"
+)
 # Give expirment context
 with open(f"{result_path}/experiment_time.json", "w+") as f:
-    json.dump(model_time, f,  indent=4)
+    json.dump(model_time, f, indent=4)
 
 print("Experiment Done")
 

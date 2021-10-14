@@ -163,6 +163,7 @@ def train_qcnn(
     model_name="dummy"
 ):
     # Setup training job
+    
     iterations = config["train"].get("iterations", 200)
     learning_rate = config["train"].get("learning_rate", 0.01)
     batch_size = config["train"].get("batch_size", 25)
