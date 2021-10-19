@@ -221,7 +221,7 @@ class DataUtility:
             return col_set - excluded_set | target_set
         else:
             sample_idx = (
-                self.row_sample[row_sample_name]
+                set(data.index) & set(self.row_sample[row_sample_name])
                 if not (row_sample_name is None)
                 else set(data.index)
             )

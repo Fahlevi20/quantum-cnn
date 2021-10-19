@@ -53,7 +53,7 @@ class Layer:
 # TODO sort out imports
 import os
 import json
-from operator import mod
+from operator import index, mod
 import pandas as pd
 import pennylane as qml
 import circuit_presets
@@ -117,11 +117,12 @@ def store_results(
     config,
     model_name,
     params_history,
+    best_params,
     loss_train_history,
     loss_test_history,
-    y_test,
     y_hat,
     y_hat_class,
+    y_test,
     cf_matrix,
 ):
     """
@@ -137,6 +138,8 @@ def store_results(
 
     # print(f"Storing resuts to:\n {result_path}")
     pd.DataFrame(params_history).to_csv(f"{result_path}/{model_name}-param-history.csv")
+    pd.DataFrame(best_params).to_csv(f"{result_path}/{model_name}-best-param.csv",
+        index=False,)
     pd.DataFrame(loss_train_history).to_csv(
         f"{result_path}/{model_name}-loss-train-history.csv",
         index=False,
@@ -181,23 +184,13 @@ def train_qcnn(
     # Preprocessing
     ## Filter data
     raw = filter_levels(raw, data_utility.target, levels=target_levels)
-
+    
     ## Make target binary TODO generalize more classes
     raw[data_utility.target] = np.where(
         raw[data_utility.target] == target_levels[1], 1, 0
     )
 
-    ## Split data
-    X, y, Xy = data_utility.get_samples(raw)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=test_size,
-        random_state=random_state,
-    )
-    data_utility.row_sample["train"] = X_train.index
-    data_utility.row_sample["test"] = X_test.index
+    ## Get train test splits
     X_train, y_train, Xy_test, X_test, y_test, Xy_test = data_utility.get_samples(
         raw, row_samples=["train", "test"]
     )
@@ -270,6 +263,7 @@ def train_qcnn(
             config,
             model_name,
             params_history,
+            best_params,
             loss_train_history,
             loss_test_history,
             y_hat,
@@ -279,10 +273,8 @@ def train_qcnn(
         )
     return (
         y_hat,
-        y_hat_class,
-        loss_train_history,
-        loss_test_history,
-        params_history,
+        X_test.index,
+        best_params,
         cf_matrix,
     )
 
@@ -343,4 +335,6 @@ def get_y_label(y_hat):
 
 
 # qcnn_generic["conv_layer"](2)
+# %%
+
 # %%

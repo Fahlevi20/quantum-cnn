@@ -175,7 +175,7 @@ def U_SU4(params, wires):  # 15 params
 # Pooling Layer
 
 
-def psatz1(params, wires):  # 2 params
+def psatz1(params, wires):  # 2 params # TODO classical post processing, quantum teleportation protocall Nielsung and Chuang tunneling protocall 1.3.7 p 26
     qml.CRZ(params[0], wires=[wires[0], wires[1]])
     qml.PauliX(wires=wires[0])
     qml.CRX(params[1], wires=[wires[0], wires[1]])

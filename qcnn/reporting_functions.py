@@ -5,6 +5,7 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+from ast import literal_eval
 
 from circuit_presets import (
     filter_embedding_options,
@@ -309,7 +310,6 @@ def gather_results_deprecated(
 
     return result_data
 
-# %%
 def gather_experiment_results(result_path):
     # Setup structure for results
     result_data = pd.DataFrame(
@@ -372,6 +372,9 @@ def gather_experiment_results(result_path):
                         loss_test_history = pd.read_csv(
                             f"{result_path}/{model_name}-loss-test-history.csv"
                         )
+                        yhat_ytest = pd.read_csv(
+                            f"{result_path}/{model_name}-yhat-class-vs-y-test.csv"
+                        )
                         if loss_train_history.shape[1] > 2:
                             loss_train_history.drop(
                                 loss_train_history.columns[0], inplace=True, axis=1
@@ -402,6 +405,8 @@ def gather_experiment_results(result_path):
                             "embedding_permutation": embedding_permutation,
                             "target_levels_list": target_pair,
                             "target_levels":'-'.join(target_pair),
+                            "y_hat":yhat_ytest["y_test"], # TODO super misleading column names, wrong order
+                            "y_test":yhat_ytest["yhat_class"],
                             "accuracy": accuracy,
                             "precision": precision,
                             "recall": recall,
@@ -412,12 +417,31 @@ def gather_experiment_results(result_path):
                         result_data = result_data.append(result, ignore_index=True)
     return result_data
 
+# %%
 # Testing
+from ast import literal_eval
 experiments_path = "../experiments"
 experiment_filename = "experiment_config.json" #"experiment.txt"
 
 experiment_id = 23
 result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
+
+config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
+with open(config_path, "r") as f:
+    config = json.load(f)
+# %%
+distinct_levels = {item for combo in config["data"]["target_pairs"] for item in combo}
+for level in distinct_levels:
+    level_idx = result_data["target_levels"].str.contains(level)
+    y_hats  = result_data.loc[level_idx,"y_hat"]
+    level_list  = result_data.loc[level_idx,"target_levels_list"]
+    predicing_index = [item.index(level) for item in level_list]
+    y_hats.reset_index()
+    
+    for idx in y_hats.index:
+        [literal_eval(prediction.replace(" ", ","))[predicing_index[idx]] for prediction in y_hats[idx]]
+for x in result_data["target_levels"]:
+    print(x)
 # %%
 def get_file_content(file_path):
     """

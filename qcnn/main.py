@@ -2,6 +2,7 @@
 import itertools
 import os
 import time
+from numpy.lib.function_base import append
 import pandas as pd
 import circuit_presets
 import json
@@ -10,7 +11,7 @@ from pennylane import numpy as np
 from sklearn import preprocessing
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
-
+from sklearn.model_selection import train_test_split
 
 # Custom
 from data_utility import DataUtility
@@ -57,27 +58,28 @@ target_pairs = [target_pair for target_pair in itertools.combinations(target_lev
 quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
     "path": EXPERIMENT_PATH,
-    "data": {"target_pairs": [("pop", "classical")]},
+    "data": {
+        "target_pairs": [
+            ("pop", "classical"),
+            ("pop", "blues"),
+            ("reggae", "disco"),
+            ("rock", "pop"),
+        ],
+    },
     "type": "quantum",
+    "multi_class": True,
     "preprocessing": {
         "reduction_method": "pca",
         "scaler": {"angle": None, "Havlicek": "StandardScalar"},
-        "embedding_list": ["Havlicek"],
+        "embedding_list": [
+            "Angle",
+        ],
     },
-    "model": {"circuit_list": ["U_5", "U_TTN", "U_6"]},
+    "model": {"circuit_list": ["U_5"]},
     "train": {
-        "iterations": 100,
+        "iterations": 1,
     },
-    "extra": "double:\nn_col = X.shape[0]"
-    "\nfor i in range(n_col):"
-    "\nqml.Hadamard(wires=[i])"
-    "\nfor i in range(n_col):"
-    "\nqml.RZ(X[i], wires=[i])"
-    "\nfor i in range(n_col - 1):"
-    "\nj = i + 1"
-    "\nqml.CNOT(wire=[i, j])"
-    "\nqml.RZ((np.pi - X[i]) * (np.pi - X[j]), wire=[i, j])"
-    "\nqml.CNOT(wire=[i, j])",
+    "extra": "testing",
 }
 # Start experiment
 
@@ -93,12 +95,41 @@ experiment_circuits = {
     for circ_name in config["model"]["circuit_list"]
 }
 
+result_path = (
+    f"{quantum_experiment_config.get('path')}/{quantum_experiment_config.get('ID')}"
+)
 # Define embedding # TODO experiment function, log time taken
 print(f"Running expirement: {config['ID']}")
 model_time = {}
 for reduction_size, embedding_set in experiment_embeddings.items():
     for embedding_option in embedding_set:
         for circ_name, circ_param_count in experiment_circuits.items():
+            test_size = config["train"].get("test_size", 0.3)
+            random_state = config["train"].get("random_state", 42)
+            # if config["multi_class"] == True:
+            #     # Multiclass currently means we are going to do a a pairwise comparison
+            #     # for all possible (can be extended to specified) level pairs. If there are 10 levels
+            #     # to predict then there are 45 possible comparisons 10c2
+            #     # TODO make this configurable in a better way
+            X, y, Xy = data_utility.get_samples(raw)
+
+            X_train, X_test, y_train, y_test = train_test_split(
+                X,
+                y,
+                test_size=test_size,
+                random_state=random_state,
+            )
+            data_utility.row_sample["train"] = X_train.index
+            data_utility.row_sample["test"] = X_test.index
+            # else:
+            #     raw_train = raw.copy()
+            y_hat_history = {
+                "model_name": [],
+                "target_pair": [],
+                "y_hat": [],
+                "X_test_ind": [],
+                "best_params": [],
+            }
             for target_pair in config["data"]["target_pairs"]:
                 # Only minmax scale if angle
                 if "Ang" in embedding_option:
@@ -180,14 +211,7 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                 model_name = f"{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-{'-'.join(target_pair)}"
                 t1 = time.time()
                 # Train and store results
-                (
-                    y_hat,
-                    y_hat_class,
-                    loss_train_history,
-                    loss_test_history,
-                    params_history,
-                    cf_matrix,
-                ) = train_qcnn(
+                (y_hat, X_test_ind, best_params, cf_matrix,) = train_qcnn(
                     qcnn_structure,
                     embedding_option,
                     pipeline,
@@ -198,11 +222,44 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                     model_name=model_name,
                 )
                 t2 = time.time()
+                y_hat_history["model_name"].append(model_name)
+                y_hat_history["target_pair"].append(target_pair)
+                y_hat_history["y_hat"].append(y_hat)
+                y_hat_history["X_test_ind"].append(X_test_ind)
+                y_hat_history["best_params"].append(best_params)
                 model_time[f"{model_name}"] = t2 - t1
 
-result_path = (
-    f"{quantum_experiment_config.get('path')}/{quantum_experiment_config.get('ID')}"
-)
+    y_hat_history = pd.DataFrame(y_hat_history)
+    y_class_multi = pd.Series()
+    # Calculate overall performance on test said OneVsOne style
+    for test_idx, test_row in y_test.iteritems():
+        # Which models predicted this row
+        model_ind = y_hat_history["X_test_ind"].isin(
+            [item for item in y_hat_history["X_test_ind"] if test_idx in item]
+        )
+        if model_ind.any():
+            # Which of the models predictions corresponds to the specific rows
+            row_predictions = {"label": [], "y_hat": []}
+            for model_index, model_row in y_hat_history[model_ind].iterrows():
+                prediction_idx = list(model_row["X_test_ind"]).index(test_idx)
+                y_hat_tmp = model_row["y_hat"][prediction_idx]
+                mx_idx = list(y_hat_tmp).index(max(y_hat_tmp))
+                label = model_row["target_pair"][mx_idx]
+                mx_yhat = max(y_hat_tmp)
+                row_predictions["label"].append(label)
+                row_predictions["y_hat"].append(mx_yhat)
+            # Index of row predictions having highest prediction
+            best_idx = list(row_predictions["y_hat"]).index(
+                max(row_predictions["y_hat"])
+            )
+            final_label = row_predictions["label"][best_idx]
+            y_class_multi.loc[test_idx] = final_label
+    y_class_multi.to_csv(
+        f"{result_path}/{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-yclass-multi.csv"
+    )
+    y_test.to_csv(f"{result_path}/{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-ytest.csv")
+
+
 # Give expirment context
 with open(f"{result_path}/experiment_time.json", "w+") as f:
     json.dump(model_time, f, indent=4)
