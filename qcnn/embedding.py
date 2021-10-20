@@ -143,15 +143,21 @@ def data_embedding(X, embedding_type="Amplitude"):
             qml.Hadamard(wires=[i])
 
         for i in range(n_col):
-            qml.RZ(X[i], wires=[i]) # TODO pi minus
+            qml.RZ(np.pi - X[i], wires=[i])  # TODO should this be pi minus X[i]?
+
         for i in range(n_col - 1):
             j = i + 1
             qml.CNOT(wires=[i, j])
             qml.RZ((np.pi - X[i]) * (np.pi - X[j]), wires=[j])
             qml.CNOT(wires=[i, j])
-    
+
+        # repeat once more
         for i in range(n_col):
-            qml.RZ(X[i], wires=[i])
+            qml.Hadamard(wires=[i])
+
+        for i in range(n_col):
+            qml.RZ(np.pi - X[i], wires=[i])  # TODO should this be pi minus X[i]?
+
         for i in range(n_col - 1):
             j = i + 1
             qml.CNOT(wires=[i, j])

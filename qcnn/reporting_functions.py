@@ -7,6 +7,8 @@ import seaborn as sns
 import os
 from ast import literal_eval
 
+from sklearn.metrics import classification_report, confusion_matrix
+
 from circuit_presets import (
     filter_embedding_options,
     EMBEDDING_OPTIONS,
@@ -105,6 +107,7 @@ def get_result_table(data, groupby, metric):
     display_table[f"{groupby[0]} Average"] = display_table.mean(axis=1)
     return display_table
 
+
 def get_result_table_target_pairs(data, each_var, group_var, metric, group_filter=[]):
     """TODO move to generic function
 
@@ -121,15 +124,16 @@ def get_result_table_target_pairs(data, each_var, group_var, metric, group_filte
     grouped_data = grouped_data.unstack(level=0).copy()
     all_combos = [pair.split("-") for pair in grouped_data.index]
     distinct_levels = {item for combo in all_combos for item in combo}
-    display_table = pd.DataFrame(columns = distinct_levels, index=distinct_levels)
+    display_table = pd.DataFrame(columns=distinct_levels, index=distinct_levels)
     for index, row in grouped_data.iterrows():
         target_pair = index.split("-")
         display_table.loc[target_pair[0], target_pair[1]] = row[0]
         display_table.loc[target_pair[1], target_pair[0]] = row[0]
-        
+
     display_table.loc[f"Average"] = display_table.mean(axis=0)
     display_table[f"Average"] = display_table.mean(axis=1)
     return display_table
+
 
 def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
     grouped_data_train = data.groupby([each_var, group_var])["loss_train_history"].max()
@@ -310,6 +314,7 @@ def gather_results_deprecated(
 
     return result_data
 
+
 def gather_experiment_results(result_path):
     # Setup structure for results
     result_data = pd.DataFrame(
@@ -323,7 +328,7 @@ def gather_experiment_results(result_path):
             "embedding_class": [],
             "embedding_permutation": [],
             "target_levels_list": [],
-            "target_levels":[],
+            "target_levels": [],
             "accuracy": [],
             "precision": [],
             "recall": [],
@@ -404,9 +409,11 @@ def gather_experiment_results(result_path):
                             "embedding_class": embedding_class,
                             "embedding_permutation": embedding_permutation,
                             "target_levels_list": target_pair,
-                            "target_levels":'-'.join(target_pair),
-                            "y_hat":yhat_ytest["y_test"], # TODO super misleading column names, wrong order
-                            "y_test":yhat_ytest["yhat_class"],
+                            "target_levels": "-".join(target_pair),
+                            "y_hat": yhat_ytest[
+                                "y_test"
+                            ],  # TODO super misleading column names, wrong order
+                            "y_test": yhat_ytest["yhat_class"],
                             "accuracy": accuracy,
                             "precision": precision,
                             "recall": recall,
@@ -417,31 +424,46 @@ def gather_experiment_results(result_path):
                         result_data = result_data.append(result, ignore_index=True)
     return result_data
 
+
 # %%
 # Testing
 from ast import literal_eval
-experiments_path = "../experiments"
-experiment_filename = "experiment_config.json" #"experiment.txt"
 
-experiment_id = 23
+experiments_path = "../experiments"
+experiment_filename = "experiment_config.json"  # "experiment.txt"
+
+experiment_id = 53
 result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
 
 config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
 with open(config_path, "r") as f:
     config = json.load(f)
 # %%
-distinct_levels = {item for combo in config["data"]["target_pairs"] for item in combo}
-for level in distinct_levels:
-    level_idx = result_data["target_levels"].str.contains(level)
-    y_hats  = result_data.loc[level_idx,"y_hat"]
-    level_list  = result_data.loc[level_idx,"target_levels_list"]
-    predicing_index = [item.index(level) for item in level_list]
-    y_hats.reset_index()
-    
-    for idx in y_hats.index:
-        [literal_eval(prediction.replace(" ", ","))[predicing_index[idx]] for prediction in y_hats[idx]]
-for x in result_data["target_levels"]:
-    print(x)
+
+
+def get_multiclass_results(path, config, prefix):
+
+    y_class_multi = pd.read_csv(
+        f"{path}/{config['ID']}/{prefix}-yclass-multi.csv", index_col=0
+    ).squeeze()
+    y_test = pd.read_csv(
+        f"{path}/{config['ID']}/{prefix}-ytest.csv", index_col=0
+    ).squeeze()
+    distinct_levels = list(
+        {item for combo in config["data"]["target_pairs"] for item in combo}
+    )
+    # print('\nClassification Report\n')
+    display_report = classification_report(y_test, y_class_multi, target_names=distinct_levels)
+    confusion = confusion_matrix(y_test, y_class_multi, labels=distinct_levels)
+    display_table = pd.DataFrame(
+        confusion, columns=distinct_levels, index=distinct_levels
+    )
+    # display_table.loc[f"Truth Average"] = display_table.mean(axis=0)
+    # display_table[f"{groupby[0]} Average"] = display_table.mean(axis=1)
+    return display_table, display_report
+
+
+# %%
 # %%
 def get_file_content(file_path):
     """
@@ -453,11 +475,16 @@ def get_file_content(file_path):
     Returns:
         str:  contents of file
     """
-    f = open(file_path, "r")
-    file_contents = f.read()
-    f.close()
+    with open(file_path, "r") as f:
+        if "json" in file_path: # TODO Can do a much better test than this 
+            file_contents = json.load(f)
+        else:
+            file_contents = f.read()
+
     return file_contents
 
-
+# experiment_info = get_file_content(
+#     f"{experiments_path}/{experiment_id}/{experiment_filename}"
+# )
 # get_file_content("../experiments/13/experiment.txt")
 # %%

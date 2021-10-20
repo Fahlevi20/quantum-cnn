@@ -1,4 +1,5 @@
 #%%
+from ast import Str
 import itertools
 import os
 import time
@@ -6,6 +7,10 @@ from numpy.lib.function_base import append
 import pandas as pd
 import circuit_presets
 import json
+
+from collections import Counter
+import pickle
+
 from pennylane import numpy as np
 
 from sklearn import preprocessing
@@ -59,27 +64,24 @@ quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
     "path": EXPERIMENT_PATH,
     "data": {
-        "target_pairs": [
-            ("pop", "classical"),
-            ("pop", "blues"),
-            ("reggae", "disco"),
-            ("rock", "pop"),
-        ],
+        "target_pairs": target_pairs,
     },
     "type": "quantum",
-    "multi_class": True,
     "preprocessing": {
         "reduction_method": "pca",
-        "scaler": {"angle": None, "Havlicek": "StandardScalar"},
-        "embedding_list": [
-            "Angle",
-        ],
+        "scaler": {
+            "angle": "MinMaxScaler([0, np.pi / 2])",
+            "Havlicek": "MinMaxScaler([0, np.pi])",
+        },
+        "embedding_list": ["Angle"],
     },
     "model": {"circuit_list": ["U_5"]},
     "train": {
-        "iterations": 1,
+        "iterations": 100,
+        "test_size": 0.3,
+        "random_state":40,
     },
-    "extra": "testing",
+    "extra_info": "with qml.RZ(np.pi - X[i], wires=[i]) # i.e with pi minus",
 }
 # Start experiment
 
@@ -98,6 +100,7 @@ experiment_circuits = {
 result_path = (
     f"{quantum_experiment_config.get('path')}/{quantum_experiment_config.get('ID')}"
 )
+
 # Define embedding # TODO experiment function, log time taken
 print(f"Running expirement: {config['ID']}")
 model_time = {}
@@ -121,8 +124,6 @@ for reduction_size, embedding_set in experiment_embeddings.items():
             )
             data_utility.row_sample["train"] = X_train.index
             data_utility.row_sample["test"] = X_test.index
-            # else:
-            #     raw_train = raw.copy()
             y_hat_history = {
                 "model_name": [],
                 "target_pair": [],
@@ -147,7 +148,7 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                         [
                             (
                                 "scaler",
-                                preprocessing.StandardScaler(),
+                                preprocessing.MinMaxScaler([0, np.pi]),
                             ),
                             ("pca", PCA(reduction_size)),
                         ]
@@ -222,6 +223,7 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                     model_name=model_name,
                 )
                 t2 = time.time()
+                # TODO move to function
                 y_hat_history["model_name"].append(model_name)
                 y_hat_history["target_pair"].append(target_pair)
                 y_hat_history["y_hat"].append(y_hat)
@@ -229,35 +231,50 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                 y_hat_history["best_params"].append(best_params)
                 model_time[f"{model_name}"] = t2 - t1
 
-    y_hat_history = pd.DataFrame(y_hat_history)
-    y_class_multi = pd.Series()
-    # Calculate overall performance on test said OneVsOne style
-    for test_idx, test_row in y_test.iteritems():
-        # Which models predicted this row
-        model_ind = y_hat_history["X_test_ind"].isin(
-            [item for item in y_hat_history["X_test_ind"] if test_idx in item]
-        )
-        if model_ind.any():
-            # Which of the models predictions corresponds to the specific rows
-            row_predictions = {"label": [], "y_hat": []}
-            for model_index, model_row in y_hat_history[model_ind].iterrows():
-                prediction_idx = list(model_row["X_test_ind"]).index(test_idx)
-                y_hat_tmp = model_row["y_hat"][prediction_idx]
-                mx_idx = list(y_hat_tmp).index(max(y_hat_tmp))
-                label = model_row["target_pair"][mx_idx]
-                mx_yhat = max(y_hat_tmp)
-                row_predictions["label"].append(label)
-                row_predictions["y_hat"].append(mx_yhat)
-            # Index of row predictions having highest prediction
-            best_idx = list(row_predictions["y_hat"]).index(
-                max(row_predictions["y_hat"])
-            )
-            final_label = row_predictions["label"][best_idx]
-            y_class_multi.loc[test_idx] = final_label
-    y_class_multi.to_csv(
-        f"{result_path}/{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-yclass-multi.csv"
-    )
-    y_test.to_csv(f"{result_path}/{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-ytest.csv")
+            y_hat_history = pd.DataFrame(y_hat_history)
+            y_class_multi = pd.Series(dtype=str)
+            row_prediction_history = {}
+            # Calculate overall performance on test said OneVsOne style
+            for test_idx, test_row in y_test.iteritems():
+                # Which models predicted this row
+                model_ind = y_hat_history["X_test_ind"].isin(
+                    [item for item in y_hat_history["X_test_ind"] if test_idx in item]
+                )
+                if model_ind.any():
+                    # Which of the models predictions corresponds to the specific rows
+                    row_predictions = {"label": [], "y_hat": []}
+                    for model_index, model_row in y_hat_history[model_ind].iterrows():
+                        prediction_idx = list(model_row["X_test_ind"]).index(test_idx)
+                        y_hat_tmp = model_row["y_hat"][prediction_idx]
+                        mx_idx = list(y_hat_tmp).index(max(y_hat_tmp))
+                        label = model_row["target_pair"][mx_idx]
+                        # .numpy to convert from tensor to value
+                        mx_yhat = max(y_hat_tmp).numpy()
+                        row_predictions["label"].append(label)
+                        row_predictions["y_hat"].append(mx_yhat)
+                    # Index of row predictions having highest prediction
+
+                    value_counts = Counter(row_predictions["label"])
+                    # Get most common label from comparisons
+                    final_label = value_counts.most_common()[0][0]
+                    # if value_counts.most_common()[0][1] == 1:
+                    #     # If all occur the same amount of times, choose most confident occurance (still not really a good way to do it though)
+                    #     best_idx = list(row_predictions["y_hat"]).index(
+                    #         max(row_predictions["y_hat"])
+                    #     )
+                    #     final_label = row_predictions["label"][best_idx]
+
+                    y_class_multi.loc[test_idx] = final_label
+                    row_prediction_history[test_idx] = row_predictions
+            # Store prefix
+            prefix = f"{result_path}/{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}"
+            with open(f"{prefix}-row-prediction-history.pkl", "wb+") as f:
+                pickle.dump(row_prediction_history, f, pickle.HIGHEST_PROTOCOL)
+            # how to load again
+            # with open(f"{prefix}-row-prediction-history.pkl", 'rb') as f:
+            #     pickle.load(f)
+            y_class_multi.to_csv(f"{prefix}-yclass-multi.csv")
+            y_test.to_csv(f"{prefix}-ytest.csv")
 
 
 # Give expirment context
