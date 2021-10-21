@@ -54,7 +54,7 @@ y_test = y_test[ind]
 # Configuration
 EXPERIMENT_PATH = "../experiments"
 # Ensure experiment doesn't get overwritten
-EXPERIMENT_ID = 64  # max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
+EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
 # EXPERIMENT_ID = 20
 
 # levels to consider
@@ -70,7 +70,7 @@ quantum_experiment_config = {
     "path": EXPERIMENT_PATH,
     "data": {
         "name": "MNIST",
-        "target_pairs": target_pairs,
+        "target_pairs": [(0, 1)],
         "test_size": 1000,
     },
     "type": "quantum",
@@ -78,14 +78,14 @@ quantum_experiment_config = {
         "reduction_method": "pca",
         "scaler": {
             "angle": "MinMaxScaler([0, np.pi / 2])",
-            "Havlicek": "MinMaxScaler([0, np.pi])",
+            "Havlicek": "MinMaxScaler([-1,1])",
         },
         "embedding_list": [
             "Angle",
         ],
         # "embedding_list": ["Angle"],
     },
-    "model": {"circuit_list": ["U_5"]},
+    "model": {"circuit_list": ["U_5", "U_9", "U_SO4"]},
     "train": {
         "iterations": 100,
         "test_size": 0.3,
@@ -141,7 +141,7 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                         [
                             (
                                 "scaler",
-                                preprocessing.MinMaxScaler([0, np.pi]),
+                                preprocessing.MinMaxScaler([-1, 1]),
                             ),
                             ("pca", PCA(reduction_size)),
                         ]

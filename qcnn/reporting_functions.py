@@ -180,7 +180,7 @@ def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
                     markers=True,
                     dashes=False,
                 )
-                axes[0].set_title(f"{col} Train Cost Per Iteration")
+                axes[0].set_title(f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration")
 
                 sns.lineplot(
                     ax=axes[1],
@@ -196,7 +196,7 @@ def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
                     markers=True,
                     dashes=False,
                 )
-                axes[1].set_title(f"{col} Test Cost Per Iteration")
+                axes[1].set_title(f"{col}-{'-'.join(group_filter)} Test Cost Per Iteration")
 
 
 def check_filter_on_list(filter_list, check_list):
@@ -361,7 +361,13 @@ def gather_experiment_results(result_path):
                         # Case when no hybrid encoding was done
                         embedding_class = embedding_option
                         embedding_permutation = 1
-                    model_name = f"{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-{'-'.join(target_pair)}"
+                    if type(target_pair[0]==int):
+                        target_pair_str=f"{target_pair[0]}-{target_pair[1]}"
+                    else:
+                        target_pair_str = "-".join(target_pair),
+                        
+                    model_name = f"{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-{target_pair_str}"
+                    
                     result_files = os.listdir(result_path)
                     # Check if file exist, if not experiment might still be running TODO warning
                     if f"{model_name}-param-history.csv" in result_files:
@@ -409,7 +415,7 @@ def gather_experiment_results(result_path):
                             "embedding_class": embedding_class,
                             "embedding_permutation": embedding_permutation,
                             "target_levels_list": target_pair,
-                            "target_levels": "-".join(target_pair),
+                            "target_levels": target_pair_str,
                             "y_hat": yhat_ytest[
                                 "y_test"
                             ],  # TODO super misleading column names, wrong order
@@ -425,22 +431,22 @@ def gather_experiment_results(result_path):
     return result_data
 
 
+# %% Testing
+# from ast import literal_eval
+
+# experiments_path = "../experiments"
+# experiment_filename = "experiment_config.json"  # "experiment.txt"
+
+# experiment_id = 64
+# result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
+
+# config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
+# with open(config_path, "r") as f:
+#     config = json.load(f)
+
 # %%
-# Testing
-from ast import literal_eval
-
-experiments_path = "../experiments"
-experiment_filename = "experiment_config.json"  # "experiment.txt"
-
-experiment_id = 53
-result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
-
-config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
-with open(config_path, "r") as f:
-    config = json.load(f)
+# plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
 # %%
-
-
 def get_multiclass_results(path, config, prefix):
 
     y_class_multi = pd.read_csv(
@@ -453,7 +459,7 @@ def get_multiclass_results(path, config, prefix):
         {item for combo in config["data"]["target_pairs"] for item in combo}
     )
     # print('\nClassification Report\n')
-    display_report = classification_report(y_test, y_class_multi, target_names=distinct_levels)
+    display_report = classification_report(y_test, y_class_multi, target_names=[f"{level}" for level in distinct_levels])
     confusion = confusion_matrix(y_test, y_class_multi, labels=distinct_levels)
     display_table = pd.DataFrame(
         confusion, columns=distinct_levels, index=distinct_levels
@@ -464,6 +470,8 @@ def get_multiclass_results(path, config, prefix):
 
 
 # %%
+# %%
+# confusion_table, confusion_metrics = get_multiclass_results(experiments_path, config, "pca-8-quantum-Angle-U_5")
 # %%
 def get_file_content(file_path):
     """
