@@ -131,3 +131,4 @@ dmypy.json
 # binaries
 data/
 results/
+experiments/
