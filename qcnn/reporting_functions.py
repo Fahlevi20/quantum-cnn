@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from ast import literal_eval
+from sklearn.metrics import ConfusionMatrixDisplay
 
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -180,7 +181,9 @@ def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
                     markers=True,
                     dashes=False,
                 )
-                axes[0].set_title(f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration")
+                axes[0].set_title(
+                    f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration"
+                )
 
                 sns.lineplot(
                     ax=axes[1],
@@ -196,7 +199,9 @@ def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
                     markers=True,
                     dashes=False,
                 )
-                axes[1].set_title(f"{col}-{'-'.join(group_filter)} Test Cost Per Iteration")
+                axes[1].set_title(
+                    f"{col}-{'-'.join(group_filter)} Test Cost Per Iteration"
+                )
 
 
 def check_filter_on_list(filter_list, check_list):
@@ -361,13 +366,13 @@ def gather_experiment_results(result_path):
                         # Case when no hybrid encoding was done
                         embedding_class = embedding_option
                         embedding_permutation = 1
-                    if type(target_pair[0]==int):
-                        target_pair_str=f"{target_pair[0]}-{target_pair[1]}"
+                    if type(target_pair[0] == int):
+                        target_pair_str = f"{target_pair[0]}-{target_pair[1]}"
                     else:
-                        target_pair_str = "-".join(target_pair),
-                        
+                        target_pair_str = ("-".join(target_pair),)
+
                     model_name = f"{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}-{target_pair_str}"
-                    
+
                     result_files = os.listdir(result_path)
                     # Check if file exist, if not experiment might still be running TODO warning
                     if f"{model_name}-param-history.csv" in result_files:
@@ -432,17 +437,17 @@ def gather_experiment_results(result_path):
 
 
 # %% Testing
-# from ast import literal_eval
+from ast import literal_eval
 
-# experiments_path = "../experiments"
-# experiment_filename = "experiment_config.json"  # "experiment.txt"
+experiments_path = "../experiments"
+experiment_filename = "experiment_config.json"  # "experiment.txt"
 
-# experiment_id = 64
-# result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
+experiment_id = 61
+result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
 
-# config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
-# with open(config_path, "r") as f:
-#     config = json.load(f)
+config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
+with open(config_path, "r") as f:
+    config = json.load(f)
 
 # %%
 # plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
@@ -459,19 +464,25 @@ def get_multiclass_results(path, config, prefix):
         {item for combo in config["data"]["target_pairs"] for item in combo}
     )
     # print('\nClassification Report\n')
-    display_report = classification_report(y_test, y_class_multi, target_names=[f"{level}" for level in distinct_levels])
-    confusion = confusion_matrix(y_test, y_class_multi, labels=distinct_levels)
+    display_report = classification_report(y_test, y_class_multi)
+    confusion = confusion_matrix(y_test, y_class_multi)
     display_table = pd.DataFrame(
         confusion, columns=distinct_levels, index=distinct_levels
     )
+    fig, axes = plt.subplots(1, 1, figsize=(30, 10))
+    axes.grid(False)
+    dsp = ConfusionMatrixDisplay.from_predictions(
+        y_test, y_class_multi, ax=axes, cmap=plt.cm.Blues
+    )
     # display_table.loc[f"Truth Average"] = display_table.mean(axis=0)
     # display_table[f"{groupby[0]} Average"] = display_table.mean(axis=1)
-    return display_table, display_report
+    return dsp, display_report
 
 
-# %%
-# %%
 # confusion_table, confusion_metrics = get_multiclass_results(experiments_path, config, "pca-8-quantum-Angle-U_5")
+# %%
+# %%
+
 # %%
 def get_file_content(file_path):
     """
@@ -484,12 +495,13 @@ def get_file_content(file_path):
         str:  contents of file
     """
     with open(file_path, "r") as f:
-        if "json" in file_path: # TODO Can do a much better test than this 
+        if "json" in file_path:  # TODO Can do a much better test than this
             file_contents = json.load(f)
         else:
             file_contents = f.read()
 
     return file_contents
+
 
 # experiment_info = get_file_content(
 #     f"{experiments_path}/{experiment_id}/{experiment_filename}"

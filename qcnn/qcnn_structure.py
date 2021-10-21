@@ -1,4 +1,18 @@
 # %%
+
+# TODO sort out imports
+import os
+import json
+import pandas as pd
+import pennylane as qml
+from pennylane import numpy as np
+
+from sklearn.metrics import confusion_matrix
+
+# Custom
+import embedding
+
+
 class QcnnStructure:
     # TODO add and remove layer functionality
     def __init__(self, layer_dict):
@@ -50,26 +64,6 @@ class Layer:
         self.layer_order = layer_order
 
 
-# TODO sort out imports
-import os
-import json
-from operator import index, mod
-import pandas as pd
-import pennylane as qml
-import circuit_presets
-from pennylane import numpy as np
-
-from sklearn.model_selection import train_test_split
-from sklearn import preprocessing
-from sklearn.decomposition import PCA
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import confusion_matrix
-
-# Custom
-from data_utility import DataUtility
-from circuit_presets import c_1, c_2, c_3, p_1, p_2, p_3
-import embedding
-
 DEVICE = qml.device("default.qubit", wires=8)
 
 
@@ -106,7 +100,7 @@ def filter_levels(data, feature, levels):
     Args:
         data (pd.DataFrame): data to filter rows
         feature (str): name of the feature for which the levels are concerned
-        levels (list[da]): [description]
+        levels (list[str or int]): distinct values of the feature to filter
     """
     filter_pat = "|".join(level for level in levels)
     indices = data[feature].str.contains(filter_pat)
@@ -134,12 +128,14 @@ def store_results(
 
     # Give expirment context
     with open(f"{result_path}/experiment_config.json", "w+") as f:
-        json.dump(config, f,  indent=4)
+        json.dump(config, f, indent=4)
 
     # print(f"Storing resuts to:\n {result_path}")
     pd.DataFrame(params_history).to_csv(f"{result_path}/{model_name}-param-history.csv")
-    pd.DataFrame(best_params).to_csv(f"{result_path}/{model_name}-best-param.csv",
-        index=False,)
+    pd.DataFrame(best_params).to_csv(
+        f"{result_path}/{model_name}-best-param.csv",
+        index=False,
+    )
     pd.DataFrame(loss_train_history).to_csv(
         f"{result_path}/{model_name}-loss-train-history.csv",
         index=False,
@@ -163,23 +159,23 @@ def train_qcnn(
     raw,
     data_utility,
     config,
-    model_name="dummy"
+    model_name="dummy",
 ):
     # Setup training job
-    
+
     iterations = config["train"].get("iterations", 200)
     learning_rate = config["train"].get("learning_rate", 0.01)
     batch_size = config["train"].get("batch_size", 25)
     cost_fn = config["train"].get("cost_fn", "cross_entropy")
     test_size = config["train"].get("test_size", 0.3)
     random_state = config["train"].get("random_state", 42)
-    save_results = False if config.get("path", None) is None else True 
+    save_results = False if config.get("path", None) is None else True
 
     params = np.random.randn(qcnn_structure.paramater_count)
     loss_train_history = {"Iteration": [], "Cost": []}
     loss_test_history = {"Iteration": [], "Cost": []}
     params_history = {}
-    opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate)    
+    opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate)
 
     # Preprocessing
     # Get test set first
@@ -187,16 +183,16 @@ def train_qcnn(
         raw, row_samples=["test"]
     )
     y_test_all = np.where(y_test_all == target_levels[1], 1, 0)
-    
+
     ## Filter data
     raw = filter_levels(raw, data_utility.target, levels=target_levels)
-    
+
     ## Make target binary TODO generalize more classes
     raw[data_utility.target] = np.where(
         raw[data_utility.target] == target_levels[1], 1, 0
-    )    
+    )
 
-    ## Get train test splits, X_test here will be only for the subset of data, so used to evaluate the single model 
+    ## Get train test splits, X_test here will be only for the subset of data, so used to evaluate the single model
     # but not the OvO combinded one
     X_train, y_train, Xy_test, X_test, y_test, Xy_test = data_utility.get_samples(
         raw, row_samples=["train", "test"]
@@ -206,7 +202,7 @@ def train_qcnn(
     # Transform data
     X_train_tfd = pipeline.transform(X_train)
     X_test_tfd = pipeline.transform(X_test)
-    X_test_all_tfd = pipeline.transform(X_test_all) 
+    X_test_all_tfd = pipeline.transform(X_test_all)
 
     for it in range(iterations):
         # Sample records for trainig run, TODO move to data_utility
@@ -262,19 +258,22 @@ def train_qcnn(
         )
         for x in X_test_tfd
     ]
-    # TODO can be optimized to use the already predicted ones
-    y_hat_all = [
-        model(
-            x,
-            best_params,
-            embedding_type,
-            qcnn_structure=qcnn_structure,
-            cost_fn=cost_fn,
-        )
-        for x in X_test_all_tfd
-    ]
     y_hat_class = get_y_label(y_hat)
     cf_matrix = confusion_matrix(y_test, y_hat_class)
+    # TODO can be optimized to use the already predicted ones
+    if config["model"]["multi_class"] == "ovo":
+        y_hat_all = [
+            model(
+                x,
+                best_params,
+                embedding_type,
+                qcnn_structure=qcnn_structure,
+                cost_fn=cost_fn,
+            )
+            for x in X_test_all_tfd
+        ]
+    else:
+        y_hat_all = None
 
     # store_results if path is provided
     if save_results:

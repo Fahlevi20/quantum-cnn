@@ -77,11 +77,11 @@ quantum_experiment_config = {
     "preprocessing": {
         "reduction_method": "pca",
         "scaler": {
-            "angle": "MinMaxScaler([0, np.pi / 2])",
-            "Havlicek": "MinMaxScaler([-1,1])",
+            "Angle": [0, np.pi / 2],
+            "Havlicek": [-1,1],
         },
         "embedding_list": [
-            "Angle",
+            "Havlicek",
         ],
         # "embedding_list": ["Angle"],
     },
@@ -125,33 +125,7 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                 "y_hat": [],
             }
             for target_pair in config["data"]["target_pairs"]:
-                # Only minmax scale if angle
-                if "Ang" in embedding_option:
-                    pipeline = Pipeline(
-                        [
-                            (
-                                "scaler",
-                                preprocessing.MinMaxScaler([0, np.pi / 2]),
-                            ),
-                            ("pca", PCA(reduction_size)),
-                        ]
-                    )
-                elif "Havlicek" in embedding_option:
-                    pipeline = Pipeline(
-                        [
-                            (
-                                "scaler",
-                                preprocessing.MinMaxScaler([-1, 1]),
-                            ),
-                            ("pca", PCA(reduction_size)),
-                        ]
-                    )
-                else:
-                    pipeline = Pipeline(
-                        [
-                            ("pca", PCA(reduction_size)),
-                        ]
-                    )
+                pipeline = get_preprocessing_pipeline(embedding_option, reduction_size, config["preprocessing"]["scaler"])               
 
                 # Define QCNN structure
                 layer_dict = {
