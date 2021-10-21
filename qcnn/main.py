@@ -74,11 +74,11 @@ quantum_experiment_config = {
     },
     "model": {"circuit_list": ["U_5"], "multi_class": "ovo"},
     "train": {
-        "iterations": 100,
+        "iterations": 1,
         "test_size": 0.3,
         "random_state": 40,
     },
-    "extra_info": "normal",
+    "extra_info": "debug",
 }
 # Start experiment
 
@@ -104,6 +104,8 @@ model_time = {}
 for reduction_size, embedding_set in experiment_embeddings.items():
     for embedding_option in embedding_set:
         for circ_name, circ_param_count in experiment_circuits.items():
+            # Set prefix to define model
+            prefix = f"{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}"
             test_size = config["train"].get("test_size", 0.3)
             random_state = config["train"].get("random_state", 42)
             X, y, Xy = data_utility.get_samples(raw)
@@ -116,8 +118,6 @@ for reduction_size, embedding_set in experiment_embeddings.items():
             )
             data_utility.row_sample["train"] = X_train.index
             data_utility.row_sample["test"] = X_test.index
-            # Store test set
-            y_test.to_csv(f"{prefix}-ytest.csv")
             y_hat_history = {
                 "model_name": [],
                 "target_pair": [],
@@ -125,7 +125,6 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                 "X_test_ind": [],
                 "best_params": [],
             }
-            prefix = f"{result_path}/{config['preprocessing'].get('reduction_method', 'pca')}-{reduction_size}-{config.get('type', 'quantum')}-{embedding_option}-{circ_name}"
             for target_pair in config["data"]["target_pairs"]:
                 # Get preprocessing pipeline for configuration
                 pipeline = get_preprocessing_pipeline(
@@ -199,6 +198,9 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                 y_hat_history["X_test_ind"].append(X_test_ind)
                 y_hat_history["best_params"].append(best_params)
                 model_time[f"{model_name}"] = t2 - t1
+
+            # Store test set
+            y_test.to_csv(f"{result_path}/{prefix}-ytest.csv")
 
             if config["model"]["multi_class"] == "ovo":
                 # If model should apply ovo strategy, TODO this can be done better if I can represent the model as a SKLearn classifier

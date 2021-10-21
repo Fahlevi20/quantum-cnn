@@ -4,7 +4,9 @@ import pickle
 from collections import Counter
 
 
-def get_ovo_classication(y_hat_history, y_test, store_results=True, prefix=None):
+def get_ovo_classication(
+    y_hat_history, y_test, config, store_results=True, prefix=None
+):
 
     y_hat_history = pd.DataFrame(y_hat_history)
     y_class_multi = pd.Series(dtype=str)
@@ -41,11 +43,12 @@ def get_ovo_classication(y_hat_history, y_test, store_results=True, prefix=None)
 
             y_class_multi.loc[test_idx] = final_label
             row_prediction_history[test_idx] = row_predictions
-
-    with open(f"{prefix}-row-prediction-history.pkl", "wb+") as f:
-        pickle.dump(row_prediction_history, f, pickle.HIGHEST_PROTOCOL)
-    # how to load again
-    # with open(f"{prefix}-row-prediction-history.pkl", 'rb') as f:
-    #     pickle.load(f)
-    y_class_multi.to_csv(f"{prefix}-yclass-multi.csv")
+    if store_results is True:
+        result_path = f"{config.get('path')}/{config.get('ID')}"
+        with open(f"{result_path}/{prefix}-row-prediction-history.pkl", "wb+") as f:
+            pickle.dump(row_prediction_history, f, pickle.HIGHEST_PROTOCOL)
+        # how to load again
+        # with open(f"{prefix}-row-prediction-history.pkl", 'rb') as f:
+        #     pickle.load(f)
+        y_class_multi.to_csv(f"{result_path}/{prefix}-yclass-multi.csv")
     return y_class_multi, row_prediction_history

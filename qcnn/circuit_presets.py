@@ -2,14 +2,7 @@
 import pennylane as qml
 
 # Specify options
-# TODO compact + pure amplitude
-EMBEDDING_OPTIONS = {
-    8: ["Angle", "Havlicek"],
-    12: [f"Angular-Hybrid2-{i}" for i in range(1, 5)],
-    16: [f"Amplitude-Hybrid2-{i}" for i in range(1, 5)] + ["Angle-Compact"],
-    30: [f"Angular-Hybrid4-{i}" for i in range(1, 5)],
-    32: [f"Amplitude-Hybrid4-{i}" for i in range(1, 5)],
-}
+
 
 # Name of circuit function from unitary.py along with param count
 CIRCUIT_OPTIONS = {
@@ -26,25 +19,7 @@ CIRCUIT_OPTIONS = {
 
 POOLING_OPTIONS = {"psatz1": 2, "psatz2": 0, "psatz3": 3}
 
-def filter_embedding_options(embedding_list):
-    """Method to filter out the embedding options dictionary. Removes all embeddings
-    not specified in the provided list
 
-    Args:
-        embedding_list (list(str)): list containing embedding names such as Angle or Amplitude-Hybrid-4
-
-    Returns:
-        dictionary: a subset of all possible embedding options based on the names sent through.
-    """
-    embeddings = {
-        red_size: set(embedding_list) & set(embedding_option)
-        for red_size, embedding_option in EMBEDDING_OPTIONS.items()
-        if len((set(embedding_list) & set(embedding_option)))
-        > 0
-        
-    }
-
-    return embeddings
 
 def c_1(circuit, params):
     circuit(params, wires=[0, 7])
