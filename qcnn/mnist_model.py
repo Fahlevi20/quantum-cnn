@@ -23,6 +23,11 @@ from sklearn.model_selection import train_test_split
 
 # Custom
 from data_utility import DataUtility
+from preprocessing import (
+    get_preprocessing_pipeline,
+    filter_embedding_options,
+    EMBEDDING_OPTIONS,
+)
 from qcnn_structure_mnist import (
     QcnnStructure,
     Layer,

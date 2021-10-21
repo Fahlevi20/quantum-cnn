@@ -437,17 +437,17 @@ def gather_experiment_results(result_path):
 
 
 # %% Testing
-from ast import literal_eval
+# from ast import literal_eval
 
-experiments_path = "../experiments"
-experiment_filename = "experiment_config.json"  # "experiment.txt"
+# experiments_path = "../experiments"
+# experiment_filename = "experiment_config.json"  # "experiment.txt"
 
-experiment_id = 61
-result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
+# experiment_id = 61
+# result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
 
-config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
-with open(config_path, "r") as f:
-    config = json.load(f)
+# config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
+# with open(config_path, "r") as f:
+#     config = json.load(f)
 
 # %%
 # plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
