@@ -7,7 +7,8 @@ import circuit_presets
 import json
 
 # TODO use numpy normally
-from pennylane import numpy as np
+from pennylane import numpy as qml_np
+import numpy as np
 
 from sklearn.model_selection import train_test_split
 
@@ -49,8 +50,8 @@ data_utility.update(columns_to_remove, "included", {"value": False, "reason": "m
 # Configuration
 EXPERIMENT_PATH = "../experiments"
 # Ensure experiment doesn't get overwritten
-EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
-# EXPERIMENT_ID = 20
+#EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
+EXPERIMENT_ID = 93
 
 # Levels to consider
 target_levels = raw[data_utility.target].unique()
@@ -61,24 +62,25 @@ quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
     "path": EXPERIMENT_PATH,
     "data": {
-        "target_pairs": target_pairs,
+        "target_pairs": [("pop", "classical")],
     },
     "type": "quantum",
     "preprocessing": {
         "reduction_method": "pca",
         "scaler": {
             "Angle": [0, np.pi / 2],
-            "Havlicek": [-1, 1],
+            "ZZMap": [0, 1],
         },
-        "embedding_list": ["Angle"],
+        "kwargs": {"ZZMap": {"depth": 2}},
+        "embedding_list": ["Angle", "ZZMap", "Amplitude", "IQP", "Angle-Compact"],
     },
-    "model": {"circuit_list": ["U_5"], "multi_class": "ovo"},
+    "model": {"circuit_list": ["U_5"], "multi_class": None},
     "train": {
-        "iterations": 1,
+        "iterations": 100,
         "test_size": 0.3,
         "random_state": 40,
     },
-    "extra_info": "debug",
+    "extra_info": "main, depth 5 minmax 0,1 for zzmap and iqp",
 }
 # Start experiment
 

@@ -5,12 +5,14 @@ import os
 import json
 import pandas as pd
 import pennylane as qml
-from pennylane import numpy as np
+import numpy as np
+from pennylane import numpy as qml_np
 
 from sklearn.metrics import confusion_matrix
 
 # Custom
-import embedding
+from embedding import apply_encoding
+from data_utility import DataUtility
 
 
 class QcnnStructure:
@@ -68,8 +70,15 @@ DEVICE = qml.device("default.qubit", wires=8)
 
 
 @qml.qnode(DEVICE)
-def model(data, params, embedding_type, qcnn_structure=None, cost_fn="cross_entropy"):
-    embedding.data_embedding(data, embedding_type=embedding_type)
+def model(
+    data,
+    params,
+    encoding_option,
+    config,
+    qcnn_structure=None,
+    cost_fn="cross_entropy",
+):
+    apply_encoding(data, config.numpy(), encoding_option=encoding_option)
     qcnn_structure.evaluate(params)
     # TODO where does 4 come from / paramaterize?
     if cost_fn == "mse":
@@ -79,10 +88,25 @@ def model(data, params, embedding_type, qcnn_structure=None, cost_fn="cross_entr
     return result
 
 
-def cost(params, X_batch, y_batch, embedding_type, qcnn_structure, cost_fn):
+def cost(
+    params,
+    X_batch,
+    y_batch,
+    embedding_type,
+    config,
+    qcnn_structure,
+    cost_fn,
+):
     # Different for hierarchical
     y_hat = [
-        model(x, params, embedding_type, qcnn_structure=qcnn_structure, cost_fn=cost_fn)
+        model(
+            x,
+            params,
+            embedding_type,
+            config,
+            qcnn_structure=qcnn_structure,
+            cost_fn=cost_fn,
+        )
         for x in X_batch
     ]
 
@@ -153,7 +177,7 @@ def store_results(
 
 def train_qcnn(
     qcnn_structure,
-    embedding_type,
+    encoding_option,
     pipeline,
     target_levels,
     raw,
@@ -162,7 +186,6 @@ def train_qcnn(
     model_name="dummy",
 ):
     # Setup training job
-
     iterations = config["train"].get("iterations", 200)
     learning_rate = config["train"].get("learning_rate", 0.01)
     batch_size = config["train"].get("batch_size", 25)
@@ -171,7 +194,7 @@ def train_qcnn(
     random_state = config["train"].get("random_state", 42)
     save_results = False if config.get("path", None) is None else True
 
-    params = np.random.randn(qcnn_structure.paramater_count)
+    params = qml_np.random.randn(qcnn_structure.paramater_count)
     loss_train_history = {"Iteration": [], "Cost": []}
     loss_test_history = {"Iteration": [], "Cost": []}
     params_history = {}
@@ -182,13 +205,13 @@ def train_qcnn(
     X_test_all, y_test_all, Xy_test_all = data_utility.get_samples(
         raw, row_samples=["test"]
     )
-    y_test_all = np.where(y_test_all == target_levels[1], 1, 0)
+    y_test_all = qml_np.where(y_test_all == target_levels[1], 1, 0)
 
     ## Filter data
     raw = filter_levels(raw, data_utility.target, levels=target_levels)
 
     ## Make target binary TODO generalize more classes
-    raw[data_utility.target] = np.where(
+    raw[data_utility.target] = qml_np.where(
         raw[data_utility.target] == target_levels[1], 1, 0
     )
 
@@ -206,14 +229,14 @@ def train_qcnn(
 
     for it in range(iterations):
         # Sample records for trainig run, TODO move to data_utility
-        batch_train_index = np.random.randint(X_train_tfd.shape[0], size=batch_size)
+        batch_train_index = qml_np.random.randint(X_train_tfd.shape[0], size=batch_size)
         X_train_batch = X_train_tfd[batch_train_index]
-        y_train_batch = np.array(y_train)[batch_train_index]
+        y_train_batch = qml_np.array(y_train)[batch_train_index]
 
         # Sample test
-        batch_test_index = np.random.randint(X_test_tfd.shape[0], size=batch_size)
+        batch_test_index = qml_np.random.randint(X_test_tfd.shape[0], size=batch_size)
         X_test_batch = X_test_tfd[batch_test_index]
-        y_test_batch = np.array(y_test)[batch_test_index]
+        y_test_batch = qml_np.array(y_test)[batch_test_index]
 
         # Run model and get cost
         params, cost_train = opt.step_and_cost(
@@ -221,7 +244,8 @@ def train_qcnn(
                 params_current,
                 X_train_batch,
                 y_train_batch,
-                embedding_type,
+                encoding_option,
+                config,
                 qcnn_structure,
                 cost_fn,
             ),
@@ -231,7 +255,8 @@ def train_qcnn(
             params,
             X_test_batch,
             y_test_batch,
-            embedding_type,
+            encoding_option,
+            config,
             qcnn_structure,
             cost_fn,
         )
@@ -252,7 +277,8 @@ def train_qcnn(
         model(
             x,
             best_params,
-            embedding_type,
+            encoding_option,
+            config,
             qcnn_structure=qcnn_structure,
             cost_fn=cost_fn,
         )
@@ -266,7 +292,8 @@ def train_qcnn(
             model(
                 x,
                 best_params,
-                embedding_type,
+                encoding_option,
+                config,
                 qcnn_structure=qcnn_structure,
                 cost_fn=cost_fn,
             )
