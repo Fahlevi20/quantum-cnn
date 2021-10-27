@@ -11,11 +11,11 @@ from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import classification_report, confusion_matrix
 
 from circuit_presets import (
-    filter_embedding_options,
-    EMBEDDING_OPTIONS,
     CIRCUIT_OPTIONS,
     POOLING_OPTIONS,
 )
+
+from preprocessing import filter_embedding_options, EMBEDDING_OPTIONS
 
 
 def confusion_matrix_stats(cf_matrix):
@@ -442,14 +442,15 @@ def gather_experiment_results(result_path):
 # experiments_path = "../experiments"
 # experiment_filename = "experiment_config.json"  # "experiment.txt"
 
-# experiment_id = 61
+# experiment_id = 96
 # result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
 
 # config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
 # with open(config_path, "r") as f:
 #     config = json.load(f)
 
-# %%
+# # %%
+# plot_loss(result_data, "circuit", "target_levels", [f"rock"], figsize=(28, 5))
 # plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
 # %%
 def get_multiclass_results(path, config, prefix):

@@ -79,14 +79,9 @@ def get_ova_classication(
             # Index of row predictions having highest prediction
             import numpy as np
             # value_counts = Counter(row_predictions["label"])
-            # Get most common label from comparisons
-            final_label = np.array(row_predictions["label"])[np.array(row_predictions["y_hat"])==max(row_predictions["y_hat"])]
-            # if value_counts.most_common()[0][1] == 1:
-            #     # If all occur the same amount of times, choose most confident occurance (still not really a good way to do it though)
-            #     best_idx = list(row_predictions["y_hat"]).index(
-            #         max(row_predictions["y_hat"])
-            #     )
-            #     final_label = row_predictions["label"][best_idx]
+            # Get the max prediction
+            max_idx = np.array(row_predictions["y_hat"])==max(row_predictions["y_hat"])
+            final_label = np.array(row_predictions["label"])[max_idx][0]            
 
             y_class_multi.loc[test_idx] = final_label
             row_prediction_history[test_idx] = row_predictions

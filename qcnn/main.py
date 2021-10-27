@@ -50,8 +50,8 @@ data_utility.update(columns_to_remove, "included", {"value": False, "reason": "m
 # Configuration
 EXPERIMENT_PATH = "../experiments"
 # Ensure experiment doesn't get overwritten
-#EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
-EXPERIMENT_ID = 95
+# EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
+EXPERIMENT_ID = 100
 
 # Levels to consider
 target_levels = raw[data_utility.target].unique()
@@ -72,18 +72,22 @@ quantum_experiment_config = {
         "reduction_method": "pca",
         "scaler": {
             "Angle": [0, np.pi / 2],
-            "ZZMap": [-1, 1],
+            "ZZMap": [0, 1],
+            "IQP": [0, 1],
         },
-        "kwargs": {"ZZMap": {"depth": 2}, "IQP": {"depth": 2}},
-        "embedding_list": ["Angle"], # , "ZZMap", "Amplitude", "IQP", "Angle-Compact"
+        "kwargs": {"ZZMap": {"depth": 10}, "IQP": {"depth": 10}},
+        "embedding_list": [
+            # "ZZMap",
+            "IQP",
+        ],  # , "ZZMap", "Amplitude", "IQP", "Angle-Compact"
     },
-    "model": {"circuit_list": ["U_5"], "classification_type": "ova"},
+    "model": {"circuit_list": ["U_5"], "classification_type": None},
     "train": {
-        "iterations": 1,
+        "iterations": 200,
         "test_size": 0.3,
-        "random_state": 40,
+        "random_state": 39,
     },
-    "extra_info": "debug, ova"
+    "extra_info": "main, ova, IQP, ZZMap high depth, 01",
 }
 # Start experiment
 
@@ -93,7 +97,7 @@ config = quantum_experiment_config
 
 # == Rerun previous experiment ==#
 # EXPERIMENT_PATH = "../experiments"
-# EXPERIMENT_ID = 92
+# EXPERIMENT_ID = 94
 # with open(f"{EXPERIMENT_PATH}/{EXPERIMENT_ID}/experiment_config.json", "r") as f:
 #     config = json.load(f)
 # == Rerun previous experiment ==#
@@ -140,7 +144,9 @@ for reduction_size, embedding_set in experiment_embeddings.items():
             for target_pair in config["data"]["target_pairs"]:
                 model_name = f"{prefix}-{'-'.join(target_pair)}"
                 # Test if sepcifc results already exist, this allows you to continue a previously stopped experiment
-                if not (os.path.exists(f"{result_path}/{prefix}-{model_name}-confusion-matrix.csv")):
+                if not (
+                    os.path.exists(f"{result_path}/{model_name}-confusion-matrix.csv")
+                ):
                     # Get preprocessing pipeline for configuration
                     pipeline = get_preprocessing_pipeline(
                         embedding_option, reduction_size, config
