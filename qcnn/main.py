@@ -50,16 +50,16 @@ data_utility.update(columns_to_remove, "included", {"value": False, "reason": "m
 # Configuration
 EXPERIMENT_PATH = "../experiments"
 # Ensure experiment doesn't get overwritten
-# EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
-EXPERIMENT_ID = 100
+#EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
+EXPERIMENT_ID = 103
 
 # Levels to consider
 target_levels = raw[data_utility.target].unique()
 # Here we get all possible pairwise comparisons, this is used for ovo classification
-# target_pairs = [target_pair for target_pair in itertools.combinations(target_levels, 2)]
+target_pairs = [target_pair for target_pair in itertools.combinations(target_levels, 2)]
 
 # Setup for ova classifcation, each class should be in the "1" index the 0 index is arbitrary
-target_pairs = [(target_level, target_level) for target_level in target_levels]
+# target_pairs = [(target_level, target_level) for target_level in target_levels]
 # Setup expermiment config
 quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
@@ -77,17 +77,17 @@ quantum_experiment_config = {
         },
         "kwargs": {"ZZMap": {"depth": 10}, "IQP": {"depth": 10}},
         "embedding_list": [
-            # "ZZMap",
+            "Angle",
             "IQP",
         ],  # , "ZZMap", "Amplitude", "IQP", "Angle-Compact"
     },
-    "model": {"circuit_list": ["U_5"], "classification_type": None},
+    "model": {"circuit_list": ["U_5"], "classification_type": "ovo"},
     "train": {
-        "iterations": 200,
+        "iterations": 300,
         "test_size": 0.3,
         "random_state": 39,
     },
-    "extra_info": "main, ova, IQP, ZZMap high depth, 01",
+    "extra_info": "main, ova, IQP",
 }
 # Start experiment
 
