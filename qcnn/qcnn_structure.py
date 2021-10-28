@@ -5,12 +5,14 @@ import os
 import json
 import pandas as pd
 import pennylane as qml
-from pennylane import numpy as np
+import numpy as np
+from pennylane import numpy as qml_np
 
 from sklearn.metrics import confusion_matrix
 
 # Custom
-import embedding
+from embedding import apply_encoding
+from data_utility import DataUtility
 
 
 class QcnnStructure:
@@ -68,8 +70,15 @@ DEVICE = qml.device("default.qubit", wires=8)
 
 
 @qml.qnode(DEVICE)
-def model(data, params, embedding_type, qcnn_structure=None, cost_fn="cross_entropy"):
-    embedding.data_embedding(data, embedding_type=embedding_type)
+def model(
+    data,
+    params,
+    encoding_option,
+    config,
+    qcnn_structure=None,
+    cost_fn="cross_entropy",
+):
+    apply_encoding(data, config.numpy(), encoding_option=encoding_option)
     qcnn_structure.evaluate(params)
     # TODO where does 4 come from / paramaterize?
     if cost_fn == "mse":
@@ -79,10 +88,25 @@ def model(data, params, embedding_type, qcnn_structure=None, cost_fn="cross_entr
     return result
 
 
-def cost(params, X_batch, y_batch, embedding_type, qcnn_structure, cost_fn):
+def cost(
+    params,
+    X_batch,
+    y_batch,
+    embedding_type,
+    config,
+    qcnn_structure,
+    cost_fn,
+):
     # Different for hierarchical
     y_hat = [
-        model(x, params, embedding_type, qcnn_structure=qcnn_structure, cost_fn=cost_fn)
+        model(
+            x,
+            params,
+            embedding_type,
+            config,
+            qcnn_structure=qcnn_structure,
+            cost_fn=cost_fn,
+        )
         for x in X_batch
     ]
 
@@ -153,7 +177,7 @@ def store_results(
 
 def train_qcnn(
     qcnn_structure,
-    embedding_type,
+    encoding_option,
     pipeline,
     target_levels,
     raw,
@@ -161,59 +185,87 @@ def train_qcnn(
     config,
     model_name="dummy",
 ):
-    # Setup training job
+    # Get utility information
+    save_results = False if config.get("path", None) is None else True
 
+    # Get training job information
     iterations = config["train"].get("iterations", 200)
     learning_rate = config["train"].get("learning_rate", 0.01)
     batch_size = config["train"].get("batch_size", 25)
     cost_fn = config["train"].get("cost_fn", "cross_entropy")
     test_size = config["train"].get("test_size", 0.3)
     random_state = config["train"].get("random_state", 42)
-    save_results = False if config.get("path", None) is None else True
 
-    params = np.random.randn(qcnn_structure.paramater_count)
+    # Get model information
+    classification_type = config["model"].get("classification_type", "binary")
+
+    params = qml_np.random.randn(qcnn_structure.paramater_count)
     loss_train_history = {"Iteration": [], "Cost": []}
     loss_test_history = {"Iteration": [], "Cost": []}
     params_history = {}
     opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate)
 
     # Preprocessing
-    # Get test set first
-    X_test_all, y_test_all, Xy_test_all = data_utility.get_samples(
-        raw, row_samples=["test"]
-    )
-    y_test_all = np.where(y_test_all == target_levels[1], 1, 0)
+    if classification_type in ["ova"]:
+        ## Make target binary 1 for target 0 rest
+        raw[data_utility.target] = qml_np.where(
+            raw[data_utility.target] == target_levels[1], 1, 0
+        )
 
-    ## Filter data
-    raw = filter_levels(raw, data_utility.target, levels=target_levels)
+        X_train, y_train, Xy_test, X_test, y_test, Xy_test = data_utility.get_samples(
+            raw, row_samples=["train", "test"]
+        )
+    else:
+        # Get test set first
+        X_test_all, y_test_all, Xy_test_all = data_utility.get_samples(
+            raw, row_samples=["test"]
+        )
+        y_test_all = qml_np.where(y_test_all == target_levels[1], 1, 0)
+        ## Filter data
+        raw = filter_levels(raw, data_utility.target, levels=target_levels)
 
-    ## Make target binary TODO generalize more classes
-    raw[data_utility.target] = np.where(
-        raw[data_utility.target] == target_levels[1], 1, 0
-    )
+        ## Make target binary TODO generalize more classes
+        raw[data_utility.target] = qml_np.where(
+            raw[data_utility.target] == target_levels[1], 1, 0
+        )
+        ## Get train test splits, X_test here will be only for the subset of data, so used to evaluate the single model
+        # but not the OvO combinded one
+        X_train, y_train, Xy_test, X_test, y_test, Xy_test = data_utility.get_samples(
+            raw, row_samples=["train", "test"]
+        )
 
-    ## Get train test splits, X_test here will be only for the subset of data, so used to evaluate the single model
-    # but not the OvO combinded one
-    X_train, y_train, Xy_test, X_test, y_test, Xy_test = data_utility.get_samples(
-        raw, row_samples=["train", "test"]
-    )
     pipeline.fit(X_train, y_train)
 
     # Transform data
     X_train_tfd = pipeline.transform(X_train)
     X_test_tfd = pipeline.transform(X_test)
-    X_test_all_tfd = pipeline.transform(X_test_all)
+    if classification_type == "ovo":
+        X_test_all_tfd = pipeline.transform(X_test_all)
+    elif classification_type == "ova":
+        X_test_all = X_test
 
     for it in range(iterations):
         # Sample records for trainig run, TODO move to data_utility
-        batch_train_index = np.random.randint(X_train_tfd.shape[0], size=batch_size)
-        X_train_batch = X_train_tfd[batch_train_index]
-        y_train_batch = np.array(y_train)[batch_train_index]
+        if classification_type == "ova":
+            # oversample, ensuring 50% 1 50% 0
+            n_pos_case = int(batch_size / 2)
+            n_neg_case = batch_size - n_pos_case
+            pos_idx = np.random.choice(np.where(y_train == 1)[0], size=n_pos_case)
+            neg_idx = np.random.choice(np.where(y_train == 0)[0], size=n_pos_case)
+            batch_train_index = np.append(pos_idx, neg_idx)
+            X_train_batch = X_train_tfd[batch_train_index]
+            y_train_batch = qml_np.array(y_train)[batch_train_index]
+        else:
+            batch_train_index = qml_np.random.randint(
+                X_train_tfd.shape[0], size=batch_size
+            )
+            X_train_batch = X_train_tfd[batch_train_index]
+            y_train_batch = qml_np.array(y_train)[batch_train_index]
 
         # Sample test
-        batch_test_index = np.random.randint(X_test_tfd.shape[0], size=batch_size)
+        batch_test_index = qml_np.random.randint(X_test_tfd.shape[0], size=batch_size)
         X_test_batch = X_test_tfd[batch_test_index]
-        y_test_batch = np.array(y_test)[batch_test_index]
+        y_test_batch = qml_np.array(y_test)[batch_test_index]
 
         # Run model and get cost
         params, cost_train = opt.step_and_cost(
@@ -221,7 +273,8 @@ def train_qcnn(
                 params_current,
                 X_train_batch,
                 y_train_batch,
-                embedding_type,
+                encoding_option,
+                config,
                 qcnn_structure,
                 cost_fn,
             ),
@@ -231,7 +284,8 @@ def train_qcnn(
             params,
             X_test_batch,
             y_test_batch,
-            embedding_type,
+            encoding_option,
+            config,
             qcnn_structure,
             cost_fn,
         )
@@ -252,7 +306,8 @@ def train_qcnn(
         model(
             x,
             best_params,
-            embedding_type,
+            encoding_option,
+            config,
             qcnn_structure=qcnn_structure,
             cost_fn=cost_fn,
         )
@@ -261,17 +316,20 @@ def train_qcnn(
     y_hat_class = get_y_label(y_hat)
     cf_matrix = confusion_matrix(y_test, y_hat_class)
     # TODO can be optimized to use the already predicted ones
-    if config["model"]["multi_class"] == "ovo":
+    if classification_type == "ovo":
         y_hat_all = [
             model(
                 x,
                 best_params,
-                embedding_type,
+                encoding_option,
+                config,
                 qcnn_structure=qcnn_structure,
                 cost_fn=cost_fn,
             )
             for x in X_test_all_tfd
         ]
+    elif classification_type == "ova":
+        y_hat_all = y_hat
     else:
         y_hat_all = None
 

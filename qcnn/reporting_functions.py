@@ -11,11 +11,11 @@ from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import classification_report, confusion_matrix
 
 from circuit_presets import (
-    filter_embedding_options,
-    EMBEDDING_OPTIONS,
     CIRCUIT_OPTIONS,
     POOLING_OPTIONS,
 )
+
+from preprocessing import filter_embedding_options, EMBEDDING_OPTIONS
 
 
 def confusion_matrix_stats(cf_matrix):
@@ -136,12 +136,12 @@ def get_result_table_target_pairs(data, each_var, group_var, metric, group_filte
     return display_table
 
 
-def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
-    grouped_data_train = data.groupby([each_var, group_var])["loss_train_history"].max()
+def plot_loss(data, groupby, group_filter=[], figsize=(30, 5)):
+    grouped_data_train = data.groupby(groupby)["loss_train_history"].max()
     loss_history_train = grouped_data_train.copy()
     loss_history_train = loss_history_train.unstack(level=0)
 
-    grouped_data_test = data.groupby([each_var, group_var])["loss_test_history"].max()
+    grouped_data_test = data.groupby(groupby)["loss_test_history"].max()
     loss_history_test = grouped_data_test.copy()
     loss_history_test = loss_history_test.unstack(level=0)
 
@@ -151,7 +151,7 @@ def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
         plot_data_test = pd.DataFrame()
         for index, row in loss_history_train.iterrows():
             if type(row[col]) == np.ndarray and check_filter_on_list(
-                group_filter, index.split("-")
+                group_filter, index[len(index)-1].split("-")
             ):
                 plot_data_train[index] = row[col]
         plot_data_train["Iteration"] = plot_data_train.index
@@ -159,7 +159,7 @@ def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
         plot_data_test = pd.DataFrame()
         for index, row in loss_history_test.iterrows():
             if type(row[col]) == np.ndarray and check_filter_on_list(
-                group_filter, index.split("-")
+                group_filter, index[len(index)-1].split("-")
             ):
                 plot_data_test[index] = row[col]
         plot_data_test["Iteration"] = plot_data_test.index
@@ -173,11 +173,11 @@ def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
                         plot_data_train,
                         "Iteration",
                         value_name="MSE Cost",
-                        var_name=group_var,
+                        var_name=groupby[0],
                     ),
                     x="Iteration",
                     y="MSE Cost",
-                    hue=group_var,
+                    hue=groupby[0],
                     markers=True,
                     dashes=False,
                 )
@@ -191,11 +191,11 @@ def plot_loss(data, each_var, group_var, group_filter=[], figsize=(30, 5)):
                         plot_data_test,
                         "Iteration",
                         value_name="MSE Cost",
-                        var_name=group_var,
+                        var_name=groupby[0],
                     ),
                     x="Iteration",
                     y="MSE Cost",
-                    hue=group_var,
+                    hue=groupby[0],
                     markers=True,
                     dashes=False,
                 )
@@ -442,15 +442,22 @@ def gather_experiment_results(result_path):
 # experiments_path = "../experiments"
 # experiment_filename = "experiment_config.json"  # "experiment.txt"
 
-# experiment_id = 61
+# experiment_id = 98
 # result_data = gather_experiment_results(f"{experiments_path}/{experiment_id}")
 
 # config_path = f"{experiments_path}/{experiment_id}/experiment_config.json"
 # with open(config_path, "r") as f:
 #     config = json.load(f)
 
-# %%
-# plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
+# # %%
+# plot_loss(result_data, ["embedding_option", "circuit"], figsize=(30, 5))
+# distinct_levels = list(
+#     {item for combo in config["data"]["target_pairs"] for item in combo}
+# )
+# for level in distinct_levels:
+#     plot_loss(result_data, ["circuit", "embedding_option", "target_levels"], [f"{level}"], figsize=(28, 5))
+
+#plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
 # %%
 def get_multiclass_results(path, config, prefix):
 

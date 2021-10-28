@@ -1,13 +1,20 @@
 # This is an implementation of data_embedding function used for 8 qubits Quantum Convolutional Neural Network (QCNN)
 # and Hierarchical Quantum Classifier circuit.
 import pennylane as qml
-from pennylane.templates.embeddings import AmplitudeEmbedding, AngleEmbedding
+from pennylane.templates.embeddings import (
+    AmplitudeEmbedding,
+    AngleEmbedding,
+    IQPEmbedding,
+    DisplacementEmbedding,
+    QAOAEmbedding,
+    SqueezingEmbedding,
+)
 from pennylane.templates.state_preparations import MottonenStatePreparation
 import numpy as np
 from Angular_hybrid import Angular_Hybrid_4, Angular_Hybrid_2
 
 
-def data_embedding(X, embedding_type="Amplitude"):
+def data_embedding(X, embedding_type="Amplitude", **kwargs):
     if embedding_type == "Amplitude":
         AmplitudeEmbedding(X, wires=range(8), normalize=True)
     elif embedding_type == "Angle":
@@ -137,32 +144,52 @@ def data_embedding(X, embedding_type="Amplitude"):
             Angular_Hybrid_2(X3, wires=[4, 6])
             Angular_Hybrid_2(X4, wires=[5, 7])
 
-    elif embedding_type == "Havlicek":
-        n_col = X.shape[0]
-        for i in range(n_col):
+    elif embedding_type == "ZZMap":
+        zzmap(X, depth=kwargs.get("depth", 2))
+
+
+def apply_encoding(data, config, encoding_option="Angle"):
+    """Function to apply given encoding option to given data type
+
+    Args:
+        data (np.array): One row of the dataset containing n_col columns
+        encoding_option (str): Encoding option to apply
+    """
+    n_col = data.shape[0]
+    n_wires = 8
+    encoding_option_kwargs = config["preprocessing"]["kwargs"].get(encoding_option, {})
+    if encoding_option == "Amplitude":
+        AmplitudeEmbedding(data, wires=range(n_wires), normalize=True, pad_with=0.)
+    elif encoding_option == "Angle":
+        AngleEmbedding(data, wires=range(n_wires), rotation="Y")
+    elif encoding_option == "Angle-compact":
+        AngleEmbedding(data[:n_col], wires=range(n_wires), rotation="X")
+        AngleEmbedding(data[n_col : 2 * n_col], wires=range(n_wires), rotation="Y")
+    elif encoding_option == "ZZMap":
+        zzmap(data, depth=encoding_option_kwargs.get("depth", 2))
+    elif encoding_option == "IQP":
+        IQPEmbedding(data, wires=range(n_wires), n_repeats=encoding_option_kwargs.get("depth", 2))
+    elif encoding_option == "displacement":
+        DisplacementEmbedding(data, wires=range(n_wires))
+    elif encoding_option == "Squeeze":
+        SqueezingEmbedding(data, wires=range(n_wires))
+
+    # elif encoding_option == "QAOA":
+    #     QAOAEmbedding(features=data, weights=weights, wires=range(n_col))
+
+
+def zzmap(data, depth):
+    n_wires = data.shape[0]
+    for rep in range(depth):
+        for i in range(n_wires):
             qml.Hadamard(wires=[i])
-
-        for i in range(n_col):
-            qml.RZ(X[i], wires=[i])  # TODO should this be pi minus X[i]?
-
-        for i in range(n_col - 1):
-            j = i + 1
-            qml.CNOT(wires=[i, j])
-            qml.RZ((np.pi - X[i]) * (np.pi - X[j]), wires=[j])
-            qml.CNOT(wires=[i, j])
-
-        # repeat once more
-        for i in range(n_col):
-            qml.Hadamard(wires=[i])
-
-        for i in range(n_col):
-            qml.RZ(X[i], wires=[i])  # TODO should this be pi minus X[i]?
-
-        for i in range(n_col - 1):
-            j = i + 1
-            qml.CNOT(wires=[i, j])
-            qml.RZ((np.pi - X[i]) * (np.pi - X[j]), wires=[j])
-            qml.CNOT(wires=[i, j])
+            for j in range(n_wires):
+                if i == j:
+                    qml.RZ(data[i], wires=[i])
+                else:
+                    qml.CNOT(wires=[i, j])
+                    qml.RZ((np.pi - data[i]) * (np.pi - data[j]), wires=[j])
+                    qml.CNOT(wires=[i, j])
 
 
 # def Angular_Hybrid_4(X, wires):

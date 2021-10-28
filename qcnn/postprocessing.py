@@ -52,3 +52,45 @@ def get_ovo_classication(
         #     pickle.load(f)
         y_class_multi.to_csv(f"{result_path}/{prefix}-yclass-multi.csv")
     return y_class_multi, row_prediction_history
+
+def get_ova_classication(
+    y_hat_history, y_test, config, store_results=True, prefix=None
+):
+
+    y_hat_history = pd.DataFrame(y_hat_history)
+    y_class_multi = pd.Series(dtype=str)
+    row_prediction_history = {}
+    # Calculate overall performance on test said OneVsOne style
+    for test_idx, test_row in y_test.iteritems():
+        # Which models predicted this row
+        model_ind = y_hat_history["X_test_ind"].isin(
+            [item for item in y_hat_history["X_test_ind"] if test_idx in item]
+        )
+        if model_ind.any():
+            # Which of the models predictions corresponds to the specific rows
+            row_predictions = {"label": [], "y_hat": []}
+            for model_index, model_row in y_hat_history[model_ind].iterrows():
+                prediction_idx = list(model_row["X_test_ind"]).index(test_idx)
+                y_hat_tmp = model_row["y_hat"][prediction_idx]
+                yhat = y_hat_tmp[1].numpy()
+                label = model_row["target_pair"][1]
+                row_predictions["label"].append(label)
+                row_predictions["y_hat"].append(yhat)
+            # Index of row predictions having highest prediction
+            import numpy as np
+            # value_counts = Counter(row_predictions["label"])
+            # Get the max prediction
+            max_idx = np.array(row_predictions["y_hat"])==max(row_predictions["y_hat"])
+            final_label = np.array(row_predictions["label"])[max_idx][0]            
+
+            y_class_multi.loc[test_idx] = final_label
+            row_prediction_history[test_idx] = row_predictions
+    if store_results is True:
+        result_path = f"{config.get('path')}/{config.get('ID')}"
+        with open(f"{result_path}/{prefix}-row-prediction-history.pkl", "wb+") as f:
+            pickle.dump(row_prediction_history, f, pickle.HIGHEST_PROTOCOL)
+        # how to load again
+        # with open(f"{prefix}-row-prediction-history.pkl", 'rb') as f:
+        #     pickle.load(f)
+        y_class_multi.to_csv(f"{result_path}/{prefix}-yclass-multi.csv")
+    return y_class_multi, row_prediction_history

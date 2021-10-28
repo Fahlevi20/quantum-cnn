@@ -7,11 +7,11 @@ from sklearn.pipeline import Pipeline
 
 # TODO compact + pure amplitude
 EMBEDDING_OPTIONS = {
-    8: ["Angle", "Havlicek"],
+    8: ["Angle", "ZZMap", "IQP", "displacement", "Squeeze"],
     12: [f"Angular-Hybrid2-{i}" for i in range(1, 5)],
     16: [f"Amplitude-Hybrid2-{i}" for i in range(1, 5)] + ["Angle-Compact"],
     30: [f"Angular-Hybrid4-{i}" for i in range(1, 5)],
-    32: [f"Amplitude-Hybrid4-{i}" for i in range(1, 5)],
+    32: [f"Amplitude-Hybrid4-{i}" for i in range(1, 5)] + ["Amplitude"],
 }
 
 
@@ -34,8 +34,8 @@ def filter_embedding_options(embedding_list):
     return embeddings
 
 
-def get_preprocessing_pipeline(embedding_option, reduction_size, config):
-    """Returns the pipeline associated with provided embedding option.
+def get_preprocessing_pipeline(encoding_option, reduction_size, config):
+    """Returns the pipeline associated with provided encoding option.
 
     Args:
         embedding_option (str): Embedding option name, ex. Angle, Amplitude-Hybrid4-2
@@ -43,9 +43,9 @@ def get_preprocessing_pipeline(embedding_option, reduction_size, config):
         scale_range (list(float, float)): range that features should be scaled between if applicable.
     """
 
-    if "Ang" in embedding_option:
+    if "Ang" in encoding_option:
         scale_range = config["preprocessing"]["scaler"].get(
-            embedding_option, [0, np.pi / 2]
+            encoding_option, [0, np.pi / 2]
         )
         pipeline = Pipeline(
             [
@@ -56,20 +56,31 @@ def get_preprocessing_pipeline(embedding_option, reduction_size, config):
                 ("pca", PCA(reduction_size)),
             ]
         )
-    elif "Havlicek" in embedding_option:
-        scale_range = config["preprocessing"]["scaler"].get(embedding_option, [-1, 1])
+    elif ("ZZMap" in encoding_option) or ("IQP" in encoding_option):
+        scale_range = config["preprocessing"]["scaler"].get(encoding_option, [-1, 1])
         pipeline = Pipeline(
             [
                 (
                     "scaler",
                     preprocessing.MinMaxScaler(scale_range),
                 ),
+                ("pca", PCA(reduction_size)),
+            ]
+        )
+    elif "Amplitude" in encoding_option:
+        pipeline = Pipeline(
+            [
                 ("pca", PCA(reduction_size)),
             ]
         )
     else:
+        scale_range = [-1, 1]
         pipeline = Pipeline(
             [
+                (
+                    "scaler",
+                    preprocessing.MinMaxScaler(scale_range),
+                ),
                 ("pca", PCA(reduction_size)),
             ]
         )

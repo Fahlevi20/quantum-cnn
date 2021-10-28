@@ -7,7 +7,8 @@ import circuit_presets
 import json
 
 # TODO use numpy normally
-from pennylane import numpy as np
+from pennylane import numpy as qml_np
+import numpy as np
 
 from sklearn.model_selection import train_test_split
 
@@ -18,7 +19,7 @@ from preprocessing import (
     filter_embedding_options,
     EMBEDDING_OPTIONS,
 )
-from postprocessing import get_ovo_classication
+from postprocessing import get_ovo_classication, get_ova_classication
 from qcnn_structure import (
     QcnnStructure,
     Layer,
@@ -49,13 +50,16 @@ data_utility.update(columns_to_remove, "included", {"value": False, "reason": "m
 # Configuration
 EXPERIMENT_PATH = "../experiments"
 # Ensure experiment doesn't get overwritten
-EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
-# EXPERIMENT_ID = 20
+#EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
+EXPERIMENT_ID = 103
 
 # Levels to consider
 target_levels = raw[data_utility.target].unique()
-# Here we get all possible pairwise comparisons
+# Here we get all possible pairwise comparisons, this is used for ovo classification
 target_pairs = [target_pair for target_pair in itertools.combinations(target_levels, 2)]
+
+# Setup for ova classifcation, each class should be in the "1" index the 0 index is arbitrary
+# target_pairs = [(target_level, target_level) for target_level in target_levels]
 # Setup expermiment config
 quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
@@ -68,22 +72,36 @@ quantum_experiment_config = {
         "reduction_method": "pca",
         "scaler": {
             "Angle": [0, np.pi / 2],
-            "Havlicek": [-1, 1],
+            "ZZMap": [0, 1],
+            "IQP": [0, 1],
         },
-        "embedding_list": ["Angle"],
+        "kwargs": {"ZZMap": {"depth": 10}, "IQP": {"depth": 10}},
+        "embedding_list": [
+            "Angle",
+            "IQP",
+        ],  # , "ZZMap", "Amplitude", "IQP", "Angle-Compact"
     },
-    "model": {"circuit_list": ["U_5"], "multi_class": "ovo"},
+    "model": {"circuit_list": ["U_5"], "classification_type": "ovo"},
     "train": {
-        "iterations": 1,
+        "iterations": 300,
         "test_size": 0.3,
-        "random_state": 40,
+        "random_state": 39,
     },
-    "extra_info": "debug",
+    "extra_info": "main, ova, IQP",
 }
 # Start experiment
 
+# %%
 # Get experiment config
 config = quantum_experiment_config
+
+# == Rerun previous experiment ==#
+# EXPERIMENT_PATH = "../experiments"
+# EXPERIMENT_ID = 94
+# with open(f"{EXPERIMENT_PATH}/{EXPERIMENT_ID}/experiment_config.json", "r") as f:
+#     config = json.load(f)
+# == Rerun previous experiment ==#
+
 # Set embeddings to run for the experiment
 experiment_embeddings = filter_embedding_options(
     config["preprocessing"]["embedding_list"]
@@ -94,9 +112,7 @@ experiment_circuits = {
     for circ_name in config["model"]["circuit_list"]
 }
 
-result_path = (
-    f"{quantum_experiment_config.get('path')}/{quantum_experiment_config.get('ID')}"
-)
+result_path = f"{config.get('path')}/{config.get('ID')}"
 
 # Define embedding # TODO experiment function, log time taken
 print(f"Running expirement: {config['ID']}")
@@ -126,85 +142,94 @@ for reduction_size, embedding_set in experiment_embeddings.items():
                 "best_params": [],
             }
             for target_pair in config["data"]["target_pairs"]:
-                # Get preprocessing pipeline for configuration
-                pipeline = get_preprocessing_pipeline(
-                    embedding_option, reduction_size, config
-                )
-                # Define QCNN structure
-                layer_dict = {
-                    "c_1": Layer(
-                        c_1,
-                        getattr(circuit_presets, circ_name),
-                        "convolutional",
-                        circ_param_count,
-                        0,
-                    ),
-                    "p_1": Layer(
-                        p_1,
-                        getattr(circuit_presets, "psatz1"),
-                        "pooling",
-                        POOLING_OPTIONS["psatz1"],
-                        1,
-                    ),
-                    "c_2": Layer(
-                        c_2,
-                        getattr(circuit_presets, circ_name),
-                        "convolutional",
-                        circ_param_count,
-                        2,
-                    ),
-                    "p_2": Layer(
-                        p_2,
-                        getattr(circuit_presets, "psatz1"),
-                        "pooling",
-                        POOLING_OPTIONS["psatz1"],
-                        3,
-                    ),
-                    "c_3": Layer(
-                        c_3,
-                        getattr(circuit_presets, circ_name),
-                        "convolutional",
-                        circ_param_count,
-                        4,
-                    ),
-                    "p_3": Layer(
-                        p_3,
-                        getattr(circuit_presets, "psatz1"),
-                        "pooling",
-                        POOLING_OPTIONS["psatz1"],
-                        5,
-                    ),
-                }
-
-                # Create QCNN structure
-                qcnn_structure = QcnnStructure(layer_dict)
                 model_name = f"{prefix}-{'-'.join(target_pair)}"
-                t1 = time.time()
-                # Train and store results
-                (y_hat, X_test_ind, best_params, cf_matrix,) = train_qcnn(
-                    qcnn_structure,
-                    embedding_option,
-                    pipeline,
-                    target_pair,
-                    raw,
-                    data_utility,
-                    config,
-                    model_name=model_name,
-                )
-                t2 = time.time()
-                y_hat_history["model_name"].append(model_name)
-                y_hat_history["target_pair"].append(target_pair)
-                y_hat_history["y_hat"].append(y_hat)
-                y_hat_history["X_test_ind"].append(X_test_ind)
-                y_hat_history["best_params"].append(best_params)
-                model_time[f"{model_name}"] = t2 - t1
+                # Test if sepcifc results already exist, this allows you to continue a previously stopped experiment
+                if not (
+                    os.path.exists(f"{result_path}/{model_name}-confusion-matrix.csv")
+                ):
+                    # Get preprocessing pipeline for configuration
+                    pipeline = get_preprocessing_pipeline(
+                        embedding_option, reduction_size, config
+                    )
+                    # Define QCNN structure
+                    layer_dict = {
+                        "c_1": Layer(
+                            c_1,
+                            getattr(circuit_presets, circ_name),
+                            "convolutional",
+                            circ_param_count,
+                            0,
+                        ),
+                        "p_1": Layer(
+                            p_1,
+                            getattr(circuit_presets, "psatz1"),
+                            "pooling",
+                            POOLING_OPTIONS["psatz1"],
+                            1,
+                        ),
+                        "c_2": Layer(
+                            c_2,
+                            getattr(circuit_presets, circ_name),
+                            "convolutional",
+                            circ_param_count,
+                            2,
+                        ),
+                        "p_2": Layer(
+                            p_2,
+                            getattr(circuit_presets, "psatz1"),
+                            "pooling",
+                            POOLING_OPTIONS["psatz1"],
+                            3,
+                        ),
+                        "c_3": Layer(
+                            c_3,
+                            getattr(circuit_presets, circ_name),
+                            "convolutional",
+                            circ_param_count,
+                            4,
+                        ),
+                        "p_3": Layer(
+                            p_3,
+                            getattr(circuit_presets, "psatz1"),
+                            "pooling",
+                            POOLING_OPTIONS["psatz1"],
+                            5,
+                        ),
+                    }
+
+                    # Create QCNN structure
+                    qcnn_structure = QcnnStructure(layer_dict)
+                    t1 = time.time()
+                    # Train and store results
+                    (y_hat, X_test_ind, best_params, cf_matrix,) = train_qcnn(
+                        qcnn_structure,
+                        embedding_option,
+                        pipeline,
+                        target_pair,
+                        raw.copy(),
+                        data_utility,
+                        config,
+                        model_name=model_name,
+                    )
+                    t2 = time.time()
+                    y_hat_history["model_name"].append(model_name)
+                    y_hat_history["target_pair"].append(target_pair)
+                    y_hat_history["y_hat"].append(y_hat)
+                    y_hat_history["X_test_ind"].append(X_test_ind)
+                    y_hat_history["best_params"].append(best_params)
+                    model_time[f"{model_name}"] = t2 - t1
 
             # Store test set
             y_test.to_csv(f"{result_path}/{prefix}-ytest.csv")
 
-            if config["model"]["multi_class"] == "ovo":
+            if config["model"]["classification_type"] == "ovo":
                 # If model should apply ovo strategy, TODO this can be done better if I can represent the model as a SKLearn classifier
                 y_class_multi, row_prediction_history = get_ovo_classication(
+                    y_hat_history, y_test, config, store_results=True, prefix=prefix
+                )
+            elif config["model"]["classification_type"] == "ova":
+                # If model should apply ovo strategy, TODO this can be done better if I can represent the model as a SKLearn classifier
+                y_class_multi, row_prediction_history = get_ova_classication(
                     y_hat_history, y_test, config, store_results=True, prefix=prefix
                 )
 
