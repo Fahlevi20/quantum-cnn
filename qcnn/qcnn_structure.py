@@ -142,6 +142,7 @@ def store_results(
     y_hat_class,
     y_test,
     cf_matrix,
+    y_hat_history,
 ):
     """
     Method to store results to a desired path
@@ -173,6 +174,7 @@ def store_results(
         f"{result_path}/{model_name}-yhat-class-vs-y-test.csv"
     )
     pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_name}-confusion-matrix.csv")
+    pd.DataFrame(y_hat_history).to_csv(f"{result_path}/{model_name}-yhat_history.csv")
 
 
 def train_qcnn(
@@ -332,8 +334,19 @@ def train_qcnn(
         y_hat_all = y_hat
     else:
         y_hat_all = None
-
     # store_results if path is provided
+    y_hat_history = {
+            "model_name": [],
+            "target_pair": [],
+            "y_hat": [],
+            "X_test_ind": [],
+            "best_params": [],
+        }
+    y_hat_history["model_name"].append(model_name)
+    y_hat_history["target_pair"].append(target_levels)
+    y_hat_history["y_hat"].append(y_hat_all)
+    y_hat_history["X_test_ind"].append(X_test_all.index)
+    y_hat_history["best_params"].append(best_params)
     if save_results:
         store_results(
             config,
@@ -346,6 +359,7 @@ def train_qcnn(
             y_hat_class,
             y_test,
             cf_matrix,
+            y_hat_history,
         )
     return (
         y_hat_all,

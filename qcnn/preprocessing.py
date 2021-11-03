@@ -2,6 +2,8 @@
 import numpy as np
 
 from sklearn import preprocessing
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectFromModel
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 
@@ -42,7 +44,16 @@ def get_preprocessing_pipeline(encoding_option, reduction_size, config):
         reduction_size (int): Size of reduction, corresponds to how many features should be left over
         scale_range (list(float, float)): range that features should be scaled between if applicable.
     """
-
+    reduction_method = config["preprocessing"].get("reduction_method")
+    if reduction_method == "tree":
+        reduction_step = (
+            reduction_method,
+            SelectFromModel(
+                ExtraTreesClassifier(n_estimators=50), max_features=reduction_size
+            ),
+        )
+    else:
+        reduction_step = (reduction_method, PCA(reduction_size))
     if "Ang" in encoding_option:
         scale_range = config["preprocessing"]["scaler"].get(
             encoding_option, [0, np.pi / 2]
@@ -53,7 +64,7 @@ def get_preprocessing_pipeline(encoding_option, reduction_size, config):
                     "scaler",
                     preprocessing.MinMaxScaler(scale_range),
                 ),
-                ("pca", PCA(reduction_size)),
+                reduction_step,
             ]
         )
     elif ("ZZMap" in encoding_option) or ("IQP" in encoding_option):
@@ -64,13 +75,13 @@ def get_preprocessing_pipeline(encoding_option, reduction_size, config):
                     "scaler",
                     preprocessing.MinMaxScaler(scale_range),
                 ),
-                ("pca", PCA(reduction_size)),
+                reduction_step,
             ]
         )
     elif "Amplitude" in encoding_option:
         pipeline = Pipeline(
             [
-                ("pca", PCA(reduction_size)),
+                reduction_step,
             ]
         )
     else:
@@ -81,7 +92,7 @@ def get_preprocessing_pipeline(encoding_option, reduction_size, config):
                     "scaler",
                     preprocessing.MinMaxScaler(scale_range),
                 ),
-                ("pca", PCA(reduction_size)),
+                reduction_step,
             ]
         )
     return pipeline

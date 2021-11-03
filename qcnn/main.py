@@ -50,8 +50,8 @@ data_utility.update(columns_to_remove, "included", {"value": False, "reason": "m
 # Configuration
 EXPERIMENT_PATH = "../experiments"
 # Ensure experiment doesn't get overwritten
-#EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
-EXPERIMENT_ID = 103
+# EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
+EXPERIMENT_ID = 105
 
 # Levels to consider
 target_levels = raw[data_utility.target].unique()
@@ -65,7 +65,7 @@ quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
     "path": EXPERIMENT_PATH,
     "data": {
-        "target_pairs": target_pairs,
+        "target_pairs": [('classical', 'pop'), ('disco', 'rock'), ('hiphop', 'pop'), ('country', 'reggae'), ('jazz', 'metal')],
     },
     "type": "quantum",
     "preprocessing": {
@@ -79,15 +79,16 @@ quantum_experiment_config = {
         "embedding_list": [
             "Angle",
             "IQP",
+            "Amplitude"
         ],  # , "ZZMap", "Amplitude", "IQP", "Angle-Compact"
     },
-    "model": {"circuit_list": ["U_5"], "classification_type": "ovo"},
+    "model": {"circuit_list": ["U_5", "U_SU4"], "classification_type": "binary"},
     "train": {
-        "iterations": 300,
+        "iterations": 100,
         "test_size": 0.3,
-        "random_state": 39,
+        "random_state": 41,
     },
-    "extra_info": "main, ova, IQP",
+    "extra_info": "main, binary, IQP, Angle random 8 features",
 }
 # Start experiment
 
@@ -97,7 +98,7 @@ config = quantum_experiment_config
 
 # == Rerun previous experiment ==#
 # EXPERIMENT_PATH = "../experiments"
-# EXPERIMENT_ID = 94
+# EXPERIMENT_ID = 104
 # with open(f"{EXPERIMENT_PATH}/{EXPERIMENT_ID}/experiment_config.json", "r") as f:
 #     config = json.load(f)
 # == Rerun previous experiment ==#
