@@ -36,63 +36,72 @@ def filter_embedding_options(embedding_list):
     return embeddings
 
 
-def get_preprocessing_pipeline(encoding_option, reduction_size, config):
-    """Returns the pipeline associated with provided encoding option.
+def get_preprocessing_pipeline(config):
+    """Returns a pipeline that handles the pre-processing part of the model (this step is quantum/classical agnostic).
+    Currently the preprocessing pipeline consists of two steps, a scaling and feature selection step. Each of these have
+    different configurable properties. This function takes in a slice of a more general config (1 permutation in a sense...example below):
+    A general config will contain all the paramaters to try out
+        general_config = {
+                "scaler": {
+                    "method": ["standard", "minmax"],
+                    "standard_params": {},
+                    "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
+                },
+                "feature_selection": {
+                    "method": ["pca"],
+                    "pca_params": {"n_components": [8]},
+                    "tree_params": {"max_features": [8], "n_estimators": [50]},
+                },
+            }
+    The config that is sent through will be one specific iteration/slice of that general config
+        config = {
+                "scaler": {
+                    "method": "minmax",
+                    "minmax_params": {"feature_range": (0, np.pi / 2)},
+                },
+                "feature_selection": {
+                    "method": "pca",
+                    "pca_params": {"n_components": 8},
+                },
+            }
 
     Args:
-        embedding_option (str): Embedding option name, ex. Angle, Amplitude-Hybrid4-2
-        reduction_size (int): Size of reduction, corresponds to how many features should be left over
-        scale_range (list(float, float)): range that features should be scaled between if applicable.
+        config (dict): This is a dictionary which contains the specific pipeline configuration
     """
-    reduction_method = config["preprocessing"].get("reduction_method")
-    if reduction_method == "tree":
-        reduction_step = (
-            reduction_method,
+    scaler_method = config["scaler"].get("method", "minmax")
+    scaler_params = config["scaler"].get(f"{scaler_method}_params", [])
+    selection_method = config["feature_selection"].get("method", "pca")
+    selection_params = config["feature_selection"].get(f"{selection_method}_params", [])
+
+    # Define Scaler
+    if scaler_method == "minmax":
+        scaler = (
+            "scaler",
+            preprocessing.MinMaxScaler(**scaler_params),
+        )
+    elif scaler_method == "standard":
+        scaler = (
+            "scaler",
+            preprocessing.StandardScaler(**scaler_params),
+        )
+    # Define feature selector
+    if selection_method == "tree":
+        selection = (
+            selection_method,
             SelectFromModel(
-                ExtraTreesClassifier(n_estimators=50), max_features=reduction_size
+                ExtraTreesClassifier(
+                    n_estimators=selection_params.get("n_estimators", 50)
+                ),
+                max_features=selection_params.get("max_features", 8),
             ),
         )
-    else:
-        reduction_step = (reduction_method, PCA(reduction_size))
-    if "Ang" in encoding_option:
-        scale_range = config["preprocessing"]["scaler"].get(
-            encoding_option, [0, np.pi / 2]
-        )
-        pipeline = Pipeline(
-            [
-                (
-                    "scaler",
-                    preprocessing.MinMaxScaler(scale_range),
-                ),
-                reduction_step,
-            ]
-        )
-    elif ("ZZMap" in encoding_option) or ("IQP" in encoding_option):
-        scale_range = config["preprocessing"]["scaler"].get(encoding_option, [-1, 1])
-        pipeline = Pipeline(
-            [
-                (
-                    "scaler",
-                    preprocessing.MinMaxScaler(scale_range),
-                ),
-                reduction_step,
-            ]
-        )
-    elif "Amplitude" in encoding_option:
-        pipeline = Pipeline(
-            [
-                reduction_step,
-            ]
-        )
-    else:
-        scale_range = [-1, 1]
-        pipeline = Pipeline(
-            [
-                (
-                    "scaler",
-                    preprocessing.MinMaxScaler(scale_range),
-                ),
-                reduction_step,
-            ]
-        )
+    elif selection_method == "pca":
+        selection = (selection_method, PCA(**selection_params))
+    pipeline = Pipeline(
+        [
+            scaler,
+            selection,
+        ]
+    )
+
     return pipeline

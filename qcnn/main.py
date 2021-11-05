@@ -50,8 +50,8 @@ data_utility.update(columns_to_remove, "included", {"value": False, "reason": "m
 # Configuration
 EXPERIMENT_PATH = "../experiments"
 # Ensure experiment doesn't get overwritten
-# EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
-EXPERIMENT_ID = 105
+EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
+# EXPERIMENT_ID = 105
 
 # Levels to consider
 target_levels = raw[data_utility.target].unique()
@@ -61,34 +61,107 @@ target_pairs = [target_pair for target_pair in itertools.combinations(target_lev
 # Setup for ova classifcation, each class should be in the "1" index the 0 index is arbitrary
 # target_pairs = [(target_level, target_level) for target_level in target_levels]
 # Setup expermiment config
+config = {
+    "scaler": {
+        "method": ["standard"],
+        "standard_params": {},
+        "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
+    },
+    "feature_selection": {
+        "method": ["pca"],
+        "pca_params": {"n_components": [8]},
+        "tree_params": {"max_features": [8], "n_estimators": [50]},
+    },
+}
 quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
     "path": EXPERIMENT_PATH,
     "data": {
-        "target_pairs": [('classical', 'pop'), ('disco', 'rock'), ('hiphop', 'pop'), ('country', 'reggae'), ('jazz', 'metal')],
+        "target_pairs": [
+            ("classical", "pop"),
+            ("disco", "rock"),
+            ("hiphop", "pop"),
+            ("country", "reggae"),
+            ("jazz", "metal"),
+        ],
     },
-    "type": "quantum",
     "preprocessing": {
-        "reduction_method": "pca",
-        "scaler": {
-            "Angle": [0, np.pi / 2],
-            "ZZMap": [0, 1],
-            "IQP": [0, 1],
+        "quantum": {
+            "Angle": {
+                "scaler": {
+                    "method": ["standard", "minmax"],
+                    "standard_params": {},
+                    "minmax_params": {
+                        "feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]
+                    },
+                },
+                "feature_selection": {
+                    "method": ["pca", "tree"],
+                    "pca_params": {"n_components": [8]},
+                    "tree_params": {"max_features": [8], "n_estimators": [50]},
+                },
+                "ignore": False,
+            },
+            "IQP": {
+                "scaler": {
+                    "method": ["standard", "minmax"],
+                    "standard_params": {},
+                    "minmax_params": {
+                        "feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]
+                    },
+                },
+                "feature_selection": {
+                    "method": ["pca", "tree"],
+                    "pca_params": {"n_components": [8]},
+                    "tree_params": {"max_features": [8], "n_estimators": [50]},
+                },
+                "kwargs": {"depth": 10},
+                "ignore": False,
+            },
+            "Amplitude": {
+                "scaler": {
+                    "method": ["standard", "minmax"],
+                    "standard_params": {},
+                    "minmax_params": {
+                        "feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]
+                    },
+                },
+                "feature_selection": {
+                    "method": ["pca", "tree"],
+                    "pca_params": {"n_components": [8]},
+                    "tree_params": {"max_features": [8], "n_estimators": [50]},
+                },
+                "ignore": True,
+            },
         },
-        "kwargs": {"ZZMap": {"depth": 10}, "IQP": {"depth": 10}},
-        "embedding_list": [
-            "Angle",
-            "IQP",
-            "Amplitude"
-        ],  # , "ZZMap", "Amplitude", "IQP", "Angle-Compact"
+        "classical": {
+            "scaler": {
+                "method": ["standard", "minmax"],
+                "standard_params": {},
+                "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
+            },
+            "feature_selection": {
+                "method": ["pca", "tree"],
+                "pca_params": {"n_components": [8]},
+                "tree_params": {"max_features": [8], "n_estimators": [50]},
+            },
+        },
     },
-    "model": {"circuit_list": ["U_5", "U_SU4"], "classification_type": "binary"},
+    "model": {
+        "quantum": {"qcnn": {"circuit_list": ["U_5", "U_SU4"], "ignore": False}},
+        "classical": {
+            "logistic_regression": {"param_grid": {}, "ignore": False},
+            "SVM": {"param_grid": {}, "ignore": True},
+            "CNN": {"param_grid": {}, "ignore": True},
+        },
+        "classification_type": "binary",
+    },
     "train": {
         "iterations": 100,
         "test_size": 0.3,
         "random_state": 41,
     },
-    "extra_info": "main, binary, IQP, Angle random 8 features",
+    "extra_info": "debug",
 }
 # Start experiment
 
