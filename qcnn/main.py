@@ -61,18 +61,18 @@ target_pairs = [target_pair for target_pair in itertools.combinations(target_lev
 # Setup for ova classifcation, each class should be in the "1" index the 0 index is arbitrary
 # target_pairs = [(target_level, target_level) for target_level in target_levels]
 # Setup expermiment config
-config = {
-    "scaler": {
-        "method": ["standard"],
-        "standard_params": {},
-        "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
-    },
-    "feature_selection": {
-        "method": ["pca"],
-        "pca_params": {"n_components": [8]},
-        "tree_params": {"max_features": [8], "n_estimators": [50]},
-    },
-}
+# config = {
+#     "scaler": {
+#         "method": ["standard"],
+#         "standard_params": {},
+#         "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
+#     },
+#     "feature_selection": {
+#         "method": ["pca"],
+#         "pca_params": {"n_components": [8]},
+#         "tree_params": {"max_features": [8], "n_estimators": [50]},
+#     },
+# }
 quantum_experiment_config = {
     "ID": EXPERIMENT_ID,
     "path": EXPERIMENT_PATH,
@@ -135,15 +135,19 @@ quantum_experiment_config = {
             },
         },
         "classical": {
-            "scaler": {
-                "method": ["standard", "minmax"],
-                "standard_params": {},
-                "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
-            },
-            "feature_selection": {
-                "method": ["pca", "tree"],
-                "pca_params": {"n_components": [8]},
-                "tree_params": {"max_features": [8], "n_estimators": [50]},
+            "normal": {
+                "scaler": {
+                    "method": ["standard", "minmax"],
+                    "standard_params": {},
+                    "minmax_params": {
+                        "feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]
+                    },
+                },
+                "feature_selection": {
+                    "method": ["pca", "tree"],
+                    "pca_params": {"n_components": [8]},
+                    "tree_params": {"max_features": [8], "n_estimators": [50]},
+                },
             },
         },
     },
@@ -176,15 +180,193 @@ config = quantum_experiment_config
 #     config = json.load(f)
 # == Rerun previous experiment ==#
 
+# Split data by creating test(unseen by any model)
+import itertools as it
+
+test_size = config["train"].get("test_size", 0.3)
+random_state = config["train"].get("random_state", 42)
+X, y, Xy = data_utility.get_samples(raw)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=test_size,
+    random_state=random_state,
+)
+data_utility.row_sample["train"] = X_train.index
+data_utility.row_sample["test"] = X_test.index
+y_hat_history = {
+    "model_name": [],
+    "target_pair": [],
+    "y_hat": [],
+    "X_test_ind": [],
+    "best_params": [],
+}
+
+for model_type in ("quantum", "classical"):
+    for embedding_type in config["preprocessing"].get(model_type):
+        for scaler_method in config["preprocessing"][embedding_type]["scaler"].get(
+            "method", "standard"
+        ):
+            for selection_method in config["feature_selection"].get("method", "pca"):
+                scaler_param = config["scaler"].get(f"{scaler_method}_params", {})
+                selection_param = config["feature_selection"].get(
+                    f"{selection_method}_params", {}
+                )
+                # create dictionary of every possible paramater permutation
+                scaler_keys, scaler_values = (
+                    zip(*scaler_param.items())
+                    if len(scaler_param.keys()) > 0
+                    else zip([[], []])
+                )
+                scaler_permutations_dicts = [
+                    dict(zip(scaler_keys, v)) for v in it.product(*scaler_values)
+                ]
+                # Ensure there is atleast one empty dictionary
+                scaler_permutations_dicts = (
+                    [{}]
+                    if len(scaler_permutations_dicts) == 0
+                    else scaler_permutations_dicts
+                )
+                selection_keys, selection_values = (
+                    zip(*selection_param.items())
+                    if len(selection_param.keys()) > 0
+                    else zip([[], []])
+                )
+                selection_permutations_dicts = [
+                    dict(zip(selection_keys, v)) for v in it.product(*selection_values)
+                ]
+                # Ensure there is atleast one empty dictionary
+                selection_permutations_dicts = (
+                    [{}]
+                    if len(selection_permutations_dicts) == 0
+                    else selection_permutations_dicts
+                )
+                for selection_param_permutation in selection_permutations_dicts:
+                    for scaler_param_permutation in scaler_permutations_dicts:
+                        preprocessing_config = {
+                            "scaler": {
+                                "method": scaler_method,
+                                f"{scaler_method}_params": scaler_param_permutation,
+                            },
+                            "feature_selection": {
+                                "method": selection_method,
+                                f"{selection_method}_params": selection_param_permutation,
+                            },
+                        }
+                        pipeline = get_preprocessing_pipeline(preprocessing_config)
+                        selection_param_str = "-".join(
+                            [f"{k}={v}" for k, v in selection_param_permutation.items()]
+                        )
+                        scaler_param_str = "-".join(
+                            [f"{k}={v}" for k, v in scaler_param_permutation.items()]
+                        )
+                        for model in config["model"].get(model_type):
+                            if (
+                                config["model"][model_type][model].get("ignore", True)
+                                == False
+                            ):
+                                for target_pair in config["data"]["target_pairs"]:
+                                    prefix = (
+                                        f"{model_type}-{embedding_type}-{scaler_method}"
+                                        f"-{scaler_param_str}-{selection_method}-{selection_param_str}-{model}"
+                                    )
+                                    if model_type == "quantum":
+                                        experiment_circuits = {
+                                            circ_name: CIRCUIT_OPTIONS[circ_name]
+                                            for circ_name in config["model"][
+                                                model_type
+                                            ][model]["circuit_list"]
+                                        }
+                                        for (
+                                            circ_name,
+                                            circ_param_count,
+                                        ) in experiment_circuits.items():
+                                            model_name = f"{prefix}-{circ_name}-{target_pair}"
+                                            if not (
+                                                os.path.exists(
+                                                    f"{result_path}/{model_name}-confusion-matrix.csv"
+                                                )
+                                            ):
+                                                # Define QCNN structure
+                                                # fmt: off
+                                                layer_dict = {
+                                                    "c_1": Layer(c_1, getattr(circuit_presets, circ_name), "convolutional", circ_param_count, 0,),
+                                                    "p_1": Layer(p_1, getattr(circuit_presets, "psatz1"),"pooling",POOLING_OPTIONS["psatz1"],1,),
+                                                    "c_2": Layer(c_2, getattr(circuit_presets, circ_name),"convolutional",circ_param_count,2,),
+                                                    "p_2": Layer(p_2, getattr(circuit_presets, "psatz1"),"pooling",POOLING_OPTIONS["psatz1"],3,),
+                                                    "c_3": Layer(c_3, getattr(circuit_presets, circ_name),"convolutional",circ_param_count,4,),
+                                                    "p_3": Layer(p_3, getattr(circuit_presets, "psatz1"),"pooling",POOLING_OPTIONS["psatz1"],5,),
+                                                }
+
+                                                # Create QCNN structure
+                                                # fmt: off
+                                                qcnn_structure = QcnnStructure(layer_dict)
+                                                # fmt: off
+                                                y_hat_history = {"model_name": [],"target_pair": [],"y_hat": [],"X_test_ind": [],"best_params": [],}
+                                                model_time = {}
+                                                t1 = time.time()
+                                                # Train and store results
+                                                (
+                                                    y_hat,
+                                                    X_test_ind,
+                                                    best_params,
+                                                    cf_matrix,
+                                                ) = train_qcnn(
+                                                    qcnn_structure,
+                                                    embedding_type,
+                                                    pipeline,
+                                                    target_pair,
+                                                    raw.copy(),
+                                                    data_utility,
+                                                    config,
+                                                    model_name=model_name,
+                                                )
+                                                t2 = time.time()
+                                                y_hat_history["model_name"].append(model_name)
+                                                y_hat_history["target_pair"].append(target_pair)
+                                                y_hat_history["y_hat"].append(y_hat)
+                                                y_hat_history["X_test_ind"].append(X_test_ind)
+                                                y_hat_history["best_params"].append(best_params)
+                                                model_time[f"{model_name}"] = t2 - t1
+                                    elif model_type == "classical":
+                                        t1 = time.time()
+                                        model_name = f"{prefix}-{target_pair}"
+                                        # train classical model
+                                        t2 = time.time()
+                                        model_time[f"{model_name}"] = t2 - t1
+                                        
+                                    if config["model"]["classification_type"] == "ovo":
+                                        # If model should apply ovo strategy, TODO this can be done better if I can represent the model as a SKLearn classifier
+                                        y_class_multi, row_prediction_history = get_ovo_classication(
+                                            y_hat_history, y_test, config, store_results=True, prefix=prefix
+                                        )
+                                    elif config["model"]["classification_type"] == "ova":
+                                        # If model should apply ovo strategy, TODO this can be done better if I can represent the model as a SKLearn classifier
+                                        y_class_multi, row_prediction_history = get_ova_classication(
+                                            y_hat_history, y_test, config, store_results=True, prefix=prefix
+                                        )
+
+# Give expirment context
+with open(f"{result_path}/experiment_time.json", "w+") as f:
+    json.dump(model_time, f, indent=4)
+
+print("Experiment Done")
+# %%
+# for i in []:
+#     print("matt")
+# %%
+# Set circuits to run for the experiement
+experiment_circuits = {
+    circ_name: CIRCUIT_OPTIONS[circ_name]
+    for circ_name in config["model"][quantum_model]["circuit_list"]
+}
+
 # Set embeddings to run for the experiment
 experiment_embeddings = filter_embedding_options(
     config["preprocessing"]["embedding_list"]
 )
-# Set circuits to run for the experiement
-experiment_circuits = {
-    circ_name: CIRCUIT_OPTIONS[circ_name]
-    for circ_name in config["model"]["circuit_list"]
-}
+
 
 result_path = f"{config.get('path')}/{config.get('ID')}"
 
