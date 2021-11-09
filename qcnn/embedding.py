@@ -157,7 +157,7 @@ def apply_encoding(data, config, encoding_option="Angle"):
     """
     n_col = data.shape[0]
     n_wires = 8
-    encoding_option_kwargs = config["preprocessing"]["kwargs"].get(encoding_option, {})
+    encoding_option_kwargs = config["preprocessing"]["quantum"][encoding_option].get("kwargs", {})
     if encoding_option == "Amplitude":
         AmplitudeEmbedding(data, wires=range(n_wires), normalize=True, pad_with=0.)
     elif encoding_option == "Angle":

@@ -78,7 +78,7 @@ def model(
     qcnn_structure=None,
     cost_fn="cross_entropy",
 ):
-    apply_encoding(data, config.numpy(), encoding_option=encoding_option)
+    apply_encoding(data, config.numpy(), encoding_option=encoding_option.numpy())
     qcnn_structure.evaluate(params)
     # TODO where does 4 come from / paramaterize?
     if cost_fn == "mse":
