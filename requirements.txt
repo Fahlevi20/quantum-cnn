@@ -4,6 +4,7 @@ torch
 sklearn
 torchvision 
 torchaudio
+keras
 
 
 # music

@@ -9,7 +9,7 @@ import json
 # TODO use numpy normally
 from pennylane import numpy as qml_np
 import numpy as np
-
+import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 # Custom
@@ -38,13 +38,34 @@ from circuit_presets import (
 from classical_models import train_classical
 
 #%%
-data_path = "../data/archive/Data/features_30_sec.csv"
-target = "label"
-raw = pd.read_csv(data_path)
-data_utility = DataUtility(raw, target=target, default_subset="modelling")
-columns_to_remove = ["filename", "length"]
-data_utility.update(columns_to_remove, "included", {"value": False, "reason": "manual"})
+# data_path = "../data/archive/Data/features_30_sec.csv"
+# target = "label"
+# raw = pd.read_csv(data_path)
+# data_utility = DataUtility(raw, target=target, default_subset="modelling")
+# columns_to_remove = ["filename", "length"]
+# data_utility.update(columns_to_remove, "included", {"value": False, "reason": "manual"})
+# Levels to consider
+# target_levels = raw[data_utility.target].unique()
+# # Here we get all possible pairwise comparisons, this is used for ovo classification
+# target_pairs = [target_pair for target_pair in itertools.combinations(target_levels, 2)]
 
+image_data = True
+(X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
+X_train, X_test = (
+    X_train[..., np.newaxis] / 255.0,
+    X_test[..., np.newaxis] / 255.0,
+)
+ind = np.random.choice(range(X_test.shape[0]), 1000, replace=False)
+X_test = X_test[ind]
+y_test = y_test[ind]
+
+raw = [X_train, y_train, X_test, y_test]
+
+# Levels to consider
+target_levels = range(10)
+target_pairs = [target_pair for target_pair in itertools.combinations(target_levels, 2)]
+# Here we get all possible pairwise comparisons, this is used for ovo classification
+# target_pairs = [target_pair for target_pair in itertools.combinations(target_levels, 2)]
 
 #%%
 # Configuration
@@ -53,10 +74,7 @@ EXPERIMENT_PATH = "../experiments"
 EXPERIMENT_ID = max([int(exp_str) for exp_str in os.listdir(EXPERIMENT_PATH)]) + 1
 EXPERIMENT_ID = 106
 
-# Levels to consider
-target_levels = raw[data_utility.target].unique()
-# Here we get all possible pairwise comparisons, this is used for ovo classification
-target_pairs = [target_pair for target_pair in itertools.combinations(target_levels, 2)]
+
 
 # Setup for ova classifcation, each class should be in the "1" index the 0 index is arbitrary
 # target_pairs = [(target_level, target_level) for target_level in target_levels]
@@ -78,18 +96,19 @@ quantum_experiment_config = {
     "path": EXPERIMENT_PATH,
     "data": {
         "target_pairs": [
-            ("classical", "pop"),
-            ("disco", "rock"),
-            ("hiphop", "pop"),
-            ("country", "reggae"),
-            ("jazz", "metal"),
+            (0, 1),
+            # ("disco", "rock"),
+            # ("hiphop", "pop"),
+            # ("country", "reggae"),
+            # ("jazz", "metal"),
         ],
+        "type":"image",
     },
     "preprocessing": {
         "quantum": {
             "Angle": {
                 "scaler": {
-                    "method": ["standard", "minmax"],
+                    "method": [None],
                     "standard_params": {},
                     "minmax_params": {
                         "feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]
@@ -104,7 +123,7 @@ quantum_experiment_config = {
             },
             "IQP": {
                 "scaler": {
-                    "method": ["standard", "minmax"],
+                    "method": [None],
                     "standard_params": {},
                     "minmax_params": {
                         "feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]
@@ -120,7 +139,7 @@ quantum_experiment_config = {
             },
             "Amplitude": {
                 "scaler": {
-                    "method": ["standard", "minmax"],
+                    "method": [None],
                     "standard_params": {},
                     "minmax_params": {
                         "feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]
@@ -131,7 +150,7 @@ quantum_experiment_config = {
                     "pca_params": {"n_components": [8]},
                     "tree_params": {"max_features": [8], "n_estimators": [50]},
                 },
-                "ignore": True,
+                "ignore": False,
             },
         },
         "classical": {
@@ -153,16 +172,16 @@ quantum_experiment_config = {
         },
     },
     "model": {
-        "quantum": {"qcnn": {"circuit_list": ["U_5", "U_SU4"], "ignore": True}},
+        "quantum": {"qcnn": {"circuit_list": ["U_5", "U_SU4"], "ignore": False}},
         "classical": {
-            "logistic_regression": {"param_grid": {"C":np.logspace(-3,3,7).tolist(), "penalty":["l1","l2"]}, "ignore": False},
-            "SVM": {"param_grid": {'kernel': ('linear', 'rbf'), 'C': [1, 10, 100]}, "ignore": False},
-            "CNN": {"param_grid": {}, "ignore": True},
+            "logistic_regression": {"param_grid": {"C":np.logspace(-3,3,7).tolist(), "penalty":["l1","l2"]}, "ignore": True},
+            "svn": {"param_grid": {'kernel': ('linear', 'rbf', 'poly', 'sigmoid'), 'C': [1, 10, 100]}, "ignore": True},
+            "cnn": {"param_grid": {}, "ignore": True},
         },
         "classification_type": "binary",
     },
     "train": {
-        "iterations": 1,
+        "iterations": 40,
         "test_size": 0.3,
         "random_state": 41,
     },
@@ -186,16 +205,20 @@ import itertools as it
 
 test_size = config["train"].get("test_size", 0.3)
 random_state = config["train"].get("random_state", 42)
-X, y, Xy = data_utility.get_samples(raw)
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=test_size,
-    random_state=random_state,
-)
-data_utility.row_sample["train"] = X_train.index
-data_utility.row_sample["test"] = X_test.index
+if not image_data:
+    X, y, Xy = data_utility.get_samples(raw)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=test_size,
+        random_state=random_state,
+    )
+    data_utility.row_sample["train"] = X_train.index
+    data_utility.row_sample["test"] = X_test.index
+else:
+    data_utility = DataUtility(pd.DataFrame({"a":[1,2,3]}))
 y_hat_history = {
     "model_name": [],
     "target_pair": [],

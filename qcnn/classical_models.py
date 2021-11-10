@@ -9,6 +9,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import confusion_matrix
 
+from keras.wrappers.scikit_learn import KerasClassifier
+from keras.models import Sequential
+from keras.layers import Dense, Conv1D, MaxPool1D
+
 
 # TODO move to seperate file since this is duplicated in qcnn_structure
 def filter_levels(data, feature, levels):
@@ -48,7 +52,7 @@ def store_results(
     dump(best_estimator, f"{result_path}/{model_name}-estimator.joblib")
     dump(clf_grid_results, f"{result_path}/{model_name}-clf-grid-results.joblib")    
     
-    
+
 
 def train_classical(algorithm, pipeline, target_levels, raw, data_utility, config, model_name="dummy"):
     """[summary]
@@ -117,18 +121,43 @@ def train_classical(algorithm, pipeline, target_levels, raw, data_utility, confi
     elif classification_type == "ova":
         X_test_all = X_test
 
-    if algorithm == "SVM":
+    if algorithm == "svm":
         model = svm.SVC()
     elif algorithm == "logistic_regression":
         model= LogisticRegression()
-    
+    elif algorithm == "cnn":
+        pass
+        # n_cols = X_train_tfd.shape[1]
+        # n_rows = X_train_tfd.shape[0]
+        # def cnn(optimizer='rmsprop', init='glorot_uniform'):
+        #     # create model
+        #     model = Sequential()
+        #     model.add(Conv1D(1, kernel_size=2, activation='relu', input_shape=(n_rows,n_cols)))
+        #     model.add(MaxPool1D(1, kernel_size=2, activation='relu', input_shape=(n_rows,n_cols)))
+        #     model.add(Dense(12, input_dim=8, kernel_initializer=init, activation='relu'))
+        #     model.add(Dense(8, kernel_initializer=init, activation='relu'))
+        #     model.add(Dense(1, kernel_initializer=init, activation='sigmoid'))
+        #     # Compile model
+        #     model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+        #     return model    
+        #     nn.Conv1d(in_channels=1, out_channels=n_feature, kernel_size=2, padding=1),
+        #     nn.ReLU(),
+        #     nn.MaxPool1d(kernel_size=2),
+        #     nn.Conv1d(in_channels=n_feature, out_channels=n_feature, kernel_size=2, padding=1),
+        #     nn.ReLU(),
+        #     nn.MaxPool1d(kernel_size=2),
+        #     nn.Flatten(),
+        #     nn.Linear(n_feature * final_layer_size, 2),
+        # model = KerasClassifier(build_fn=cnn, verbose=0)
+
+
     # TODO ovo already implemented https://scikit-learn.org/stable/modules/svm.html in svm
     clf = GridSearchCV(model, param_grid)
-    clf.fit(X_train, y_train)
+    clf.fit(X_train_tfd, y_train)
 
     best_estimator = clf.best_estimator_
     # Get predictions
-    y_hat = best_estimator.predict(X_test)
+    y_hat = best_estimator.predict(X_test_tfd)
     cf_matrix = confusion_matrix(y_test, y_hat)
 
     if save_results:
