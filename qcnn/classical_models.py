@@ -8,6 +8,7 @@ from sklearn import svm
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import confusion_matrix
+from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
 
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.models import Sequential
@@ -118,6 +119,11 @@ def train_classical(config, algorithm, pipeline, samples, target_pair=None, mode
 
     # TODO ovo already implemented https://scikit-learn.org/stable/modules/svm.html in svm
     clf = GridSearchCV(model, param_grid)
+    if classification_type == "ovo":
+        clf = OneVsOneClassifier(clf)
+    elif classification_type == "ova":
+        clf = OneVsRestClassifier(clf)
+
     clf.fit(samples_tfd.X_train, samples_tfd.y_train)
 
     best_estimator = clf.best_estimator_

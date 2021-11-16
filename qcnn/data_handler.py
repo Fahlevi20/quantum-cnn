@@ -5,7 +5,7 @@ import numpy as np
 from collections import namedtuple
 import itertools as it
 from data_utility import DataUtility
-import tensorflow as tf
+
 from sklearn.model_selection import train_test_split
 
 
@@ -67,7 +67,8 @@ def create_train_test_samples(data, data_utility, test_size=.3, random_state=42)
 
 
 def get_image_data(path, target):
-
+    # TODO this tensforflow import slows things down and isn't needed
+    import tensorflow as tf
     (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
     X_train, X_test = (
         X_train[..., np.newaxis] / 255.0,

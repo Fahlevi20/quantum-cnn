@@ -148,40 +148,39 @@ def apply_preprocessing(
 ):
 
     if data_type == "image":
-        X_train = raw[0]
-        y_train = raw[1]
-        X_test = raw[2]
-        y_test = raw[3]
 
-        X_test_all = X_test.copy()
-        y_test_all = y_test.copy()
-        y_test_all = np.where(y_test_all == target_levels[1], 1, 0)
-
-        # TODO improve
-        x_train_filter_01 = np.where(
-            (y_train == target_levels[0]) | (y_train == target_levels[1])
-        )
-        x_test_filter_01 = np.where(
-            (y_test == target_levels[0]) | (y_test == target_levels[1])
+        train_filter = np.where(
+            (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
         )
 
-        X_train, X_test = X_train[x_train_filter_01], X_test[x_test_filter_01]
-        y_train, y_test = y_train[x_train_filter_01], y_test[x_test_filter_01]
+        test_filter = np.where(
+            (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+        )
+        X_train_filtered, X_test_filtered = (
+            samples.X_train[train_filter],
+            samples.X_test[test_filter],
+        )
+        y_train_filtered, y_test_filtered = (
+            samples.y_train[train_filter],
+            samples.y_test[test_filter],
+        )
+        # TODO this still very hardcoded
+        y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
+        y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)
 
-        y_train = np.where(y_train == target_levels[1], 1, 0)
-        y_test = np.where(y_test == target_levels[1], 1, 0)
+        X_train_filtered = tf.image.resize(X_train_filtered[:], (784, 1)).numpy()
+        X_test_filtered = tf.image.resize(X_test_filtered[:], (784, 1)).numpy()
+        X_train_filtered, X_teX_test_filteredst = tf.squeeze(
+            X_train_filtered
+        ), tf.squeeze(X_test_filtered)
 
-        X_train = tf.image.resize(X_train[:], (784, 1)).numpy()
-        X_test = tf.image.resize(X_test[:], (784, 1)).numpy()
-        X_test_all = tf.image.resize(X_test_all[:], (784, 1)).numpy()
-        X_train, X_test = tf.squeeze(X_train), tf.squeeze(X_test)
+        samples_filtered = Samples(
+            X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered
+        )
+        pipeline.fit(samples_filtered.X_train, samples_filtered.y_train)
 
-        pipeline.fit(X_train, y_train)
-
-        X_train_tfd = pipeline.transform(X_train)
-        X_test_tfd = pipeline.transform(X_test)
-        # TODO fix
-        X_test_all_tfd = pd.DataFrame(X_test_tfd)
+        X_train_tfd = pipeline.transform(samples_filtered.X_train)
+        X_test_tfd = pipeline.transform(samples_filtered.y_train)
 
         # TODO test out this step
         X_train_tfd, X_test_tfd = (X_train_tfd - X_train_tfd.min()) * (
@@ -190,54 +189,40 @@ def apply_preprocessing(
             np.pi / (X_test_tfd.max() - X_test_tfd.min())
         )
 
-        # X_test_all_tfd = (X_test_all_tfd - X_test_all_tfd.min()) * (
-        #     np.pi / (X_test_all_tfd.max() - X_test_all_tfd.min())
-        # )
-
-        return (
-            X_train_tfd,
-            y_train,
-            X_test_tfd,
-            y_test,
-            X_test_all_tfd,
-            y_test_all,
-            pd.DataFrame({"a": [1, 2, 3]}),
+        samples_tfd = Samples(
+            X_train_tfd, y_train_filtered, X_test_tfd, y_test_filtered
         )
+
+        return samples_tfd
 
     else:
         # Preprocessing
         if classification_type == "ova":
             samples_filtered = samples
-            ## Make target binary 1 for target 0 rest
-            pass
-            # raw[data_utility.target] = np.where(
-            #     raw[data_utility.target] == target_levels[1], 1, 0
-            # )
-
-            # (
-            #     X_train,
-            #     y_train,
-            #     Xy_test,
-            #     X_test,
-            #     y_test,
-            #     Xy_test,
-            # ) = data_utility.get_samples(raw, row_samples=["train", "test"])
         elif classification_type == "ova":
             samples_filtered = samples
         elif classification_type == "binary":
 
             train_filter = np.where(
-                (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+                (samples.y_train == target_pair[0])
+                | (samples.y_train == target_pair[1])
             )
             test_filter = np.where(
-                (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+                (samples.y_train == target_pair[0])
+                | (samples.y_train == target_pair[1])
             )
-            X_train_filtered, X_test_filtered = samples.X_train[train_filter], samples.X_test[test_filter]
-            y_train_filtered, y_test_filtered = samples.y_train[train_filter], samples.y_test[test_filter]
+            X_train_filtered, X_test_filtered = (
+                samples.X_train[train_filter],
+                samples.X_test[test_filter],
+            )
+            y_train_filtered, y_test_filtered = (
+                samples.y_train[train_filter],
+                samples.y_test[test_filter],
+            )
 
             y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
             y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)
-            
+
             samples_filtered = Samples(
                 X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered
             )
@@ -245,35 +230,13 @@ def apply_preprocessing(
             raise NotImplementedError(
                 f"There is no implementation for classification type: {classification_type}"
             )
-        # else:
-        #     # Get test set first
-        #     X_test_all, y_test_all, Xy_test_all = data_utility.get_samples(
-        #         raw, row_samples=["test"]
-        #     )
-        #     y_test_all = np.where(y_test_all == target_levels[1], 1, 0)
-        #     ## Filter data
-        #     raw = filter_levels(raw, data_utility.target, levels=target_levels)
-
-        #     ## Make target binary TODO generalize more classes
-        #     raw[data_utility.target] = np.where(
-        #         raw[data_utility.target] == target_levels[1], 1, 0
-        #     )
-        #     ## Get train test splits, X_test here will be only for the subset of data, so used to evaluate the single model
-        #     # but not the OvO combinded one
-        #     (
-        #         X_train,
-        #         y_train,
-        #         Xy_test,
-        #         X_test,
-        #         y_test,
-        #         Xy_test,
-        #     ) = data_utility.get_samples(raw, row_samples=["train", "test"])
-
         pipeline.fit(samples_filtered.X_train, samples_filtered.y_train)
 
         # Transform data
         X_train_tfd = pipeline.transform(samples_filtered.X_train)
         X_test_tfd = pipeline.transform(samples_filtered.y_train)
-        samples_tfd = Samples(X_train_tfd, samples_filtered.y_train, X_test_tfd, samples_filtered.y_test)
+        samples_tfd = Samples(
+            X_train_tfd, samples_filtered.y_train, X_test_tfd, samples_filtered.y_test
+        )
 
     return samples_tfd

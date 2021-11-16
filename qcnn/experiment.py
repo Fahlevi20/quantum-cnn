@@ -149,7 +149,6 @@ def run_classical_model(config, samples, pipeline, prefix, algorithm):
     if classification_type == "binary":
         for target_pair in config["data"].get("target_pairs", []):
             model_name = f"{prefix}-{algorithm}-{target_pair}"
-            # train classical modelmodel_classical
             t1 = time.time()
             # Train and store results
             train_classical(
@@ -164,7 +163,6 @@ def run_classical_model(config, samples, pipeline, prefix, algorithm):
             model_time[f"{model_name}"] = t2 - t1
     elif classification_type in ["ovo", "ova"]:
             model_name = f"{prefix}-{algorithm}-{classification_type}"
-            # train classical modelmodel_classical
             t1 = time.time()
             # Train and store results
             train_classical(
