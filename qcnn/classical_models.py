@@ -68,13 +68,13 @@ def train_classical(algorithm, pipeline, target_levels, raw, data_utility, confi
     model_type = "classical"
     save_results = False if config.get("path", None) is None else True
 
-    # Get training job information
-    iterations = config["train"].get("iterations", 200)
-    learning_rate = config["train"].get("learning_rate", 0.01)
-    batch_size = config["train"].get("batch_size", 25)
-    cost_fn = config["train"].get("cost_fn", "cross_entropy")
-    test_size = config["train"].get("test_size", 0.3)
-    random_state = config["train"].get("random_state", 42)
+    # Get training job information TODO fix
+    # iterations = config["train"].get("iterations", 200)
+    # learning_rate = config["train"].get("learning_rate", 0.01)
+    # batch_size = config["train"].get("batch_size", 25)
+    # cost_fn = config["train"].get("cost_fn", "cross_entropy")
+    # test_size = config["train"].get("test_size", 0.3)
+    # random_state = config["train"].get("random_state", 42)
 
     # Get model information
     classification_type = config["model"].get("classification_type", "binary")

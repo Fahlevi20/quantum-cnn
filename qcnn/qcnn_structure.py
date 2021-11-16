@@ -15,14 +15,33 @@ from embedding import apply_encoding
 from data_utility import DataUtility
 from preprocessing import apply_preprocessing
 
+from circuit_presets import (
+    CIRCUIT_OPTIONS,
+    POOLING_OPTIONS,
+)
+
+
+class Layer:
+    """
+    A generic layer consisting of some combination of variational circuits.
+    Order doesn't have to be from 0, all layers get sorted purely by order value
+    """
+
+    def __init__(self, layer_fn, circuit, layer_type, param_count, layer_order):
+        self.layer_fn = layer_fn
+        self.circuit = circuit
+        self.layer_type = layer_type
+        self.param_count = param_count
+        self.layer_order = layer_order
+
 
 class QcnnStructure:
     # TODO add and remove layer functionality
-    def __init__(self, layer_dict):
+    def __init__(self, layer_defintion):
         """
         Initializes a quantum convolutional neural network
         """
-        self.layer_dict = layer_dict
+        self.layer_dict = self.construct_layer_dict(layer_defintion)
         # Sort the layers according to the order
         self.sort_layer_dict_by_order()
         total_param_count = 0
@@ -36,6 +55,77 @@ class QcnnStructure:
 
         self.paramater_count = total_param_count
         self.param_indices = param_indices.copy()
+
+    def construct_layer_dict(layer_defintion):
+        """Constructs layer dictionary from config (containing list(str/int)) or the standard layer structure using the same
+        circuit in each layer for pooling and convolution
+
+        Args:
+            layer_defintion (dict(list(str/int)) or tuple(str,str)): TODO
+        """
+        if type(layer_defintion) == type(dict()):
+            layer_dict = {}
+            for layer_name, layer_params in layer_defintion.items():
+                layer_order = layer_params[0]
+                layer_fn_name = layer_params[1]
+                circ_name = layer_params[2]
+                layer_fn = getattr(circuit_presets, layer_fn_name)
+                circuit_fn = getattr(circuit_presets, circ_name)
+                layer_type = (
+                    "convolutional"
+                    if layer_name.split()[0].upper() == "c"
+                    else "pooling"
+                )
+                param_count = (
+                    CIRCUIT_OPTIONS[circ_name]
+                    if layer_name.split()[0].upper() == "c"
+                    else POOLING_OPTIONS[circ_name]
+                )
+
+                layer_dict[layer_name] = Layer(
+                    layer_fn,
+                    circuit_fn,
+                    layer_type,
+                    param_count,
+                    layer_order,
+                )
+            return layer_dict.copy()
+        elif type(layer_defintion) == type(tuple()) and len(layer_defintion) == 2:
+            """
+            The following is the default structure, it can be manually constructed as follows:
+            layer_dict = {
+                    "c_1": Layer(c_1, getattr(circuit_presets, circ_name), "convolutional", circ_param_count, 0,),
+                    "p_1": Layer(p_1, getattr(circuit_presets, pool_name),"pooling",pool_param_count,1,),
+                    "c_2": Layer(c_2, getattr(circuit_presets, circ_name),"convolutional",circ_param_count,2,),
+                    "p_2": Layer(p_2, getattr(circuit_presets, pool_name),"pooling",pool_param_count,3,),
+                    "c_3": Layer(c_3, getattr(circuit_presets, circ_name),"convolutional",circ_param_count,4,),
+                    "p_3": Layer(p_3, getattr(circuit_presets, pool_name),"pooling",pool_param_count,5,),
+                }
+            """
+            # TODO maybe named tuple is better here
+            circ_name = layer_defintion[0]
+            pool_name = layer_defintion[1]
+            layer_dict = {}
+            for layer_index in range(6):
+                layer_order = layer_index
+                layer_type, prefix, param_count, circuit_fn_name = (
+                    ("convolutional", "c", CIRCUIT_OPTIONS[circ_name], circ_name)
+                    if layer_index % 2 == 0
+                    else ("pooling", "p", POOLING_OPTIONS[pool_name], pool_name)
+                )
+                layer_fn_name = f"{prefix}_{layer_index+1}"
+                layer_dict[layer_fn_name] = Layer(
+                    getattr(circuit_presets, layer_fn_name),
+                    getattr(circuit_presets, circuit_fn_name),
+                    layer_type,
+                    param_count,
+                    layer_order,
+                )
+            return layer_dict.copy()
+        else:
+            raise NotImplementedError(
+                f"There is no implementation that supports the provided layer defintion"
+            )
 
     def sort_layer_dict_by_order(self):
         """
@@ -51,20 +141,6 @@ class QcnnStructure:
     def evaluate(self, params):
         for layer_name, layer in self.layer_dict.items():
             layer.layer_fn(layer.circuit, params[self.param_indices[layer_name]])
-
-
-class Layer:
-    """
-    A generic layer consisting of some combination of variational circuits.
-    Order doesn't have to be from 0, all layers get sorted purely by order value
-    """
-
-    def __init__(self, layer_fn, circuit, layer_type, param_count, layer_order):
-        self.layer_fn = layer_fn
-        self.circuit = circuit
-        self.layer_type = layer_type
-        self.param_count = param_count
-        self.layer_order = layer_order
 
 
 DEVICE = qml.device("default.qubit", wires=8)

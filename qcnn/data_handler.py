@@ -1,10 +1,15 @@
 import os
 import json
 import pandas as pd
+import numpy as np
+from collections import namedtuple
+import itertools as it
 from data_utility import DataUtility
+import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 
+Samples = namedtuple("Samples", ["X_train", "y_train", "X_test", "y_test"])
 def save_json(path, dict_obj):
     """Save json file
 
@@ -57,12 +62,11 @@ def create_train_test_samples(data, data_utility, test_size=.3, random_state=42)
     data_utility.row_sample["train"] = X_train.index
     data_utility.row_sample["test"] = X_test.index
 
-    return X_train, X_test, y_train, y_test
+    return Samples(X_train, X_test, y_train, y_test)
 
 
-def get_image_data(path, target, columns_to_remove=[]):
+def get_image_data(path, target):
 
-    fimage_data = True
     (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
     X_train, X_test = (
         X_train[..., np.newaxis] / 255.0,
@@ -72,10 +76,11 @@ def get_image_data(path, target, columns_to_remove=[]):
     X_test = X_test[ind]
     y_test = y_test[ind]
 
-    raw = [X_train, y_train, X_test, y_test]
+    
+    samples = [X_train, y_train, X_test, y_test]
+    
+    # # Levels to consider
+    # target_levels = range(10)
+    # target_pairs = [target_pair for target_pair in it.combinations(target_levels, 2)]
 
-    # Levels to consider
-    target_levels = range(10)
-    target_pairs = [target_pair for target_pair in itertools.combinations(target_levels, 2)]
-
-    return raw, data_utility
+    return Samples(X_train, X_test, y_train, y_test)
