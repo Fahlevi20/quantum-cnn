@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 
 
 Samples = namedtuple("Samples", ["X_train", "y_train", "X_test", "y_test"])
+
 def save_json(path, dict_obj):
     """Save json file
 
@@ -75,9 +76,6 @@ def get_image_data(path, target):
     ind = np.random.choice(range(X_test.shape[0]), 1000, replace=False)
     X_test = X_test[ind]
     y_test = y_test[ind]
-
-    
-    samples = [X_train, y_train, X_test, y_test]
     
     # # Levels to consider
     # target_levels = range(10)

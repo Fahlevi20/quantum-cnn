@@ -13,6 +13,7 @@ from keras.wrappers.scikit_learn import KerasClassifier
 from keras.models import Sequential
 from keras.layers import Dense, Conv1D, MaxPool1D
 
+from preprocessing import apply_preprocessing
 
 # TODO move to seperate file since this is duplicated in qcnn_structure
 def filter_levels(data, feature, levels):
@@ -54,7 +55,7 @@ def store_results(
     
 
 
-def train_classical(algorithm, pipeline, target_levels, raw, data_utility, config, model_name="dummy"):
+def train_classical(config, algorithm, pipeline, samples, target_pair=None, model_name="dummy"):
     """[summary]
 
     Args:
@@ -75,7 +76,7 @@ def train_classical(algorithm, pipeline, target_levels, raw, data_utility, confi
     # cost_fn = config["train"].get("cost_fn", "cross_entropy")
     # test_size = config["train"].get("test_size", 0.3)
     # random_state = config["train"].get("random_state", 42)
-
+    data_type = config["data"].get("type", None)
     # Get model information
     classification_type = config["model"].get("classification_type", "binary")
 
@@ -83,43 +84,7 @@ def train_classical(algorithm, pipeline, target_levels, raw, data_utility, confi
     param_grid = config["model"][model_type][algorithm].get("param_grid", {})
 
     # Preprocessing
-    if classification_type in ["ova"]:
-        ## Make target binary 1 for target 0 rest
-        raw[data_utility.target] = np.where(
-            raw[data_utility.target] == target_levels[1], 1, 0
-        )
-
-        X_train, y_train, Xy_test, X_test, y_test, Xy_test = data_utility.get_samples(
-            raw, row_samples=["train", "test"]
-        )
-    else:
-        # Get test set first
-        X_test_all, y_test_all, Xy_test_all = data_utility.get_samples(
-            raw, row_samples=["test"]
-        )
-        y_test_all = np.where(y_test_all == target_levels[1], 1, 0)
-        ## Filter data
-        raw = filter_levels(raw, data_utility.target, levels=target_levels)
-
-        ## Make target binary TODO generalize more classes
-        raw[data_utility.target] = np.where(
-            raw[data_utility.target] == target_levels[1], 1, 0
-        )
-        ## Get train test splits, X_test here will be only for the subset of data, so used to evaluate the single model
-        # but not the OvO combinded one
-        X_train, y_train, Xy_test, X_test, y_test, Xy_test = data_utility.get_samples(
-            raw, row_samples=["train", "test"]
-        )
-
-    pipeline.fit(X_train, y_train)
-
-    # Transform data
-    X_train_tfd = pipeline.transform(X_train)
-    X_test_tfd = pipeline.transform(X_test)
-    if classification_type == "ovo":
-        X_test_all_tfd = pipeline.transform(X_test_all)
-    elif classification_type == "ova":
-        X_test_all = X_test
+    samples_tfd = apply_preprocessing(samples, pipeline, classification_type, data_type, target_pair)
 
     if algorithm == "svm":
         model = svm.SVC()
@@ -153,12 +118,12 @@ def train_classical(algorithm, pipeline, target_levels, raw, data_utility, confi
 
     # TODO ovo already implemented https://scikit-learn.org/stable/modules/svm.html in svm
     clf = GridSearchCV(model, param_grid)
-    clf.fit(X_train_tfd, y_train)
+    clf.fit(samples_tfd.X_train, samples_tfd.y_train)
 
     best_estimator = clf.best_estimator_
     # Get predictions
-    y_hat = best_estimator.predict(X_test_tfd)
-    cf_matrix = confusion_matrix(y_test, y_hat)
+    y_hat = best_estimator.predict(samples_tfd.X_test)
+    cf_matrix = confusion_matrix(samples_tfd.y_test, y_hat)
 
     if save_results:
         store_results(

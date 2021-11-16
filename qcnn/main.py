@@ -384,7 +384,7 @@ config = quantum_experiment_config
 
 # print("Experiment Done")
 
-from collections import namedtuple
+
 def main(args):
     # Load experiment config
     config = load_json(args["config_path"])
@@ -398,10 +398,8 @@ def main(args):
         # Datautility should be used only here to transform the data into a desirable train test set
         # Then when the xeperiment is ran it is assumed that all "columns" and rows as is needs to be used
         # TODO check if data_utility updates
-        X_train, X_test, y_train, y_test = create_train_test_samples(raw, data_utility, test_size=config)
-        Samples = namedtuple("Samples", ["X_train", "y_train", "X_test", "y_test"])
-        samples = Samples(X_train, X_test, y_train, y_test)
-        model_execution_times = run_experiment(config, samples)
+        samples = create_train_test_samples(raw, data_utility, test\_size=conig)
+    model_execution_times = run_experiment(config, samples)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run a machine learning experiment')

@@ -72,7 +72,7 @@ import itertools as it
 print(list(it.product([],[1])))
 
 # %%
-def run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, target_pair, result_path, pipeline, raw, data_utility):
+def run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples):
     model_type ="quantum"
     prefix = (
                 f"{model_type}-{embedding_type}-{scaler_method}"
@@ -80,52 +80,53 @@ def run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, s
             )
     circuit_list = config["model"][model_type][algorithm].get("circuit_list", [])
     pooling_list = config["model"][model_type][algorithm].get("pooling_list", [])
+    classification_type = config["model"].get("classification_type", None)
     model_time = {}
     for circ_pool_combination in it.product(circuit_list, pooling_list):
-        model_name = f"{prefix}-{circ_pool_combination[0]}-{target_pair}"
-        if not (
-            os.path.exists(
-                # Check to see if model was already built
-                f"{result_path}/{model_name}-confusion-matrix.csv"
-            )
-        ):
-            qcnn_structure = QcnnStructure(circ_pool_combination)
-            t1 = time.time()
-            train_qcnn(
-                qcnn_structure,
-                embedding_type,
-                pipeline,
-                target_pair,
-                raw.copy(),
-                data_utility,
-                config,
-                model_name=model_name,
-            )
-            t2 = time.time()
-            model_time[f"{model_name}"] = t2 - t1
-        for custom_structure in config["model"][model_type][algorithm].get("custom_structures", []):
-            model_name = f"{prefix}-{custom_structure}-{target_pair}"
-            if not (
-                os.path.exists(
-                    # Check to see if model was already built
-                    f"{result_path}/{model_name}-confusion-matrix.csv"
-                )
-            ):
-                qcnn_structure = QcnnStructure(custom_structure)
-                t1 = time.time()
-                train_qcnn(
-                    qcnn_structure,
-                    embedding_type,
-                    pipeline,
-                    target_pair,
-                    raw.copy(),
-                    data_utility,
-                    config,
-                    model_name=model_name,
-                )
-                t2 = time.time()
-                model_time[f"{model_name}"] = t2 - t1
-        return model_time
+        if classification_type == "binary":
+            for target_pair in config["data"].get("target_pairs", []):
+                model_name = f"{prefix}-{circ_pool_combination[0]}-{target_pair}"
+                if not (
+                    os.path.exists(
+                        # Check to see if model was already built
+                        f"{result_path}/{model_name}-confusion-matrix.csv"
+                    )
+                ):
+                    qcnn_structure = QcnnStructure(circ_pool_combination)
+                    t1 = time.time()
+                    train_qcnn(
+                        qcnn_structure,
+                        embedding_type,
+                        pipeline,
+                        target_pair,
+                        samples,
+                        config,
+                        model_name=model_name,
+                    )
+                    t2 = time.time()
+                    model_time[f"{model_name}"] = t2 - t1
+                for custom_structure in config["model"][model_type][algorithm].get("custom_structures", []):
+                    model_name = f"{prefix}-{custom_structure}-{target_pair}"
+                    if not (
+                        os.path.exists(
+                            # Check to see if model was already built
+                            f"{result_path}/{model_name}-confusion-matrix.csv"
+                        )
+                    ):
+                        qcnn_structure = QcnnStructure(custom_structure)
+                        t1 = time.time()
+                        train_qcnn(
+                            qcnn_structure,
+                            embedding_type,
+                            pipeline,
+                            target_pair,
+                            samples,
+                            config,
+                            model_name=model_name,
+                        )
+                        t2 = time.time()
+                        model_time[f"{model_name}"] = t2 - t1
+    return model_time
     
     # if config["model"]["classification_type"] == "ovo":
     #     # TODO this should work by loading saved files and then doing ovo or ova
@@ -140,24 +141,45 @@ def run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, s
     #     )
 # I can take the preprocessing one step further by searching for the built in methods in SKLearn
 
-def run_classical_model(config, raw, pipeline, prefix, algorithm, target_pair, data_utility):
-    model_name = f"{prefix}-{algorithm}-{target_pair}"
-    # train classical modelmodel_classical
-    t1 = time.time()
-    # Train and store results
-    train_classical(
-        algorithm,
-        pipeline,
-        target_pair,
-        raw.copy(),
-        data_utility,
-        config,
-        model_name=model_name,
-    )
-    t2 = time.time()
+def run_classical_model(config, samples, pipeline, prefix, algorithm):
+    classification_type = config["model"].get("classification_type", None)
+    model_time = {}
+    # TODO below is a bit redundant, the train_classical function can probably handle the target_pair + classification
+    # type logic, but can be improved in future
+    if classification_type == "binary":
+        for target_pair in config["data"].get("target_pairs", []):
+            model_name = f"{prefix}-{algorithm}-{target_pair}"
+            # train classical modelmodel_classical
+            t1 = time.time()
+            # Train and store results
+            train_classical(
+                config,
+                algorithm,
+                pipeline,
+                samples,
+                target_pair=target_pair,
+                model_name=model_name,
+            )
+            t2 = time.time()
+            model_time[f"{model_name}"] = t2 - t1
+    elif classification_type in ["ovo", "ova"]:
+            model_name = f"{prefix}-{algorithm}-{classification_type}"
+            # train classical modelmodel_classical
+            t1 = time.time()
+            # Train and store results
+            train_classical(
+                config,
+                algorithm,
+                pipeline,
+                samples,
+                model_name=model_name,
+            )
+            t2 = time.time()
+            model_time[f"{model_name}"] = t2 - t1
+
     return (t2 - t1)
 
-def run_experiment(config, raw, data_utility=None):
+def run_experiment(config, raw, samples):
     result_path = f"{config.get('path')}/{config.get('ID')}"
     all_model_time = {}
     for model_type in ("quantum", "classical"):
@@ -184,11 +206,11 @@ def run_experiment(config, raw, data_utility=None):
                                 config["model"][model_type][algorithm].get("ignore", True)
                                 == False
                             ):
-                                for target_pair in config["data"]["target_pairs"]:
-                                    all_model_time[f"{target_pair}"] = {}
-                                    if model_type=="quantum":
-                                        model_time= run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, target_pair, result_path, pipeline, raw, data_utility)
-                                    elif model_type == "classical":
-                                        model_time = run_classical_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, target_pair, result_path, pipeline, raw, data_utility)  
-                                    all_model_time[f"{target_pair}"] = model_time
+                                
+                                all_model_time[f"{algorithm}"] = {}
+                                if model_type=="quantum":
+                                    model_time= run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples)
+                                elif model_type == "classical":
+                                    model_time = run_classical_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples)  
+                                all_model_time[f"{algorithm}"] = model_time
     return all_model_time

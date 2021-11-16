@@ -8,6 +8,10 @@ from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.feature_selection import SelectFromModel
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, TransformerMixin
+
+# Custom
+from data_handler import Samples
 
 # TODO compact + pure amplitude
 EMBEDDING_OPTIONS = {
@@ -17,8 +21,6 @@ EMBEDDING_OPTIONS = {
     30: [f"Angular-Hybrid4-{i}" for i in range(1, 5)],
     32: [f"Amplitude-Hybrid4-{i}" for i in range(1, 5)] + ["Amplitude"],
 }
-
-from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class IdentityTransformer(BaseEstimator, TransformerMixin):
@@ -142,7 +144,7 @@ def filter_levels(data, feature, levels):
 
 
 def apply_preprocessing(
-    raw, pipeline, data_utility, classification_type, target_levels, data_type
+    samples, pipeline, classification_type, data_type, target_pair=None
 ):
 
     if data_type == "image":
@@ -204,60 +206,74 @@ def apply_preprocessing(
 
     else:
         # Preprocessing
-        if classification_type in ["ova"]:
+        if classification_type == "ova":
+            samples_filtered = samples
             ## Make target binary 1 for target 0 rest
-            raw[data_utility.target] = np.where(
-                raw[data_utility.target] == target_levels[1], 1, 0
-            )
+            pass
+            # raw[data_utility.target] = np.where(
+            #     raw[data_utility.target] == target_levels[1], 1, 0
+            # )
 
-            (
-                X_train,
-                y_train,
-                Xy_test,
-                X_test,
-                y_test,
-                Xy_test,
-            ) = data_utility.get_samples(raw, row_samples=["train", "test"])
+            # (
+            #     X_train,
+            #     y_train,
+            #     Xy_test,
+            #     X_test,
+            #     y_test,
+            #     Xy_test,
+            # ) = data_utility.get_samples(raw, row_samples=["train", "test"])
+        elif classification_type == "ova":
+            samples_filtered = samples
+        elif classification_type == "binary":
+
+            train_filter = np.where(
+                (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+            )
+            test_filter = np.where(
+                (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+            )
+            X_train_filtered, X_test_filtered = samples.X_train[train_filter], samples.X_test[test_filter]
+            y_train_filtered, y_test_filtered = samples.y_train[train_filter], samples.y_test[test_filter]
+
+            y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
+            y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)
+            
+            samples_filtered = Samples(
+                X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered
+            )
         else:
-            # Get test set first
-            X_test_all, y_test_all, Xy_test_all = data_utility.get_samples(
-                raw, row_samples=["test"]
+            raise NotImplementedError(
+                f"There is no implementation for classification type: {classification_type}"
             )
-            y_test_all = np.where(y_test_all == target_levels[1], 1, 0)
-            ## Filter data
-            raw = filter_levels(raw, data_utility.target, levels=target_levels)
+        # else:
+        #     # Get test set first
+        #     X_test_all, y_test_all, Xy_test_all = data_utility.get_samples(
+        #         raw, row_samples=["test"]
+        #     )
+        #     y_test_all = np.where(y_test_all == target_levels[1], 1, 0)
+        #     ## Filter data
+        #     raw = filter_levels(raw, data_utility.target, levels=target_levels)
 
-            ## Make target binary TODO generalize more classes
-            raw[data_utility.target] = np.where(
-                raw[data_utility.target] == target_levels[1], 1, 0
-            )
-            ## Get train test splits, X_test here will be only for the subset of data, so used to evaluate the single model
-            # but not the OvO combinded one
-            (
-                X_train,
-                y_train,
-                Xy_test,
-                X_test,
-                y_test,
-                Xy_test,
-            ) = data_utility.get_samples(raw, row_samples=["train", "test"])
+        #     ## Make target binary TODO generalize more classes
+        #     raw[data_utility.target] = np.where(
+        #         raw[data_utility.target] == target_levels[1], 1, 0
+        #     )
+        #     ## Get train test splits, X_test here will be only for the subset of data, so used to evaluate the single model
+        #     # but not the OvO combinded one
+        #     (
+        #         X_train,
+        #         y_train,
+        #         Xy_test,
+        #         X_test,
+        #         y_test,
+        #         Xy_test,
+        #     ) = data_utility.get_samples(raw, row_samples=["train", "test"])
 
-        pipeline.fit(X_train, y_train)
+        pipeline.fit(samples_filtered.X_train, samples_filtered.y_train)
 
         # Transform data
-        X_train_tfd = pipeline.transform(X_train)
-        X_test_tfd = pipeline.transform(X_test)
-        if classification_type == "ovo":
-            X_test_all_tfd = pipeline.transform(X_test_all)
-        elif classification_type == "ova":
-            X_test_all = X_test
+        X_train_tfd = pipeline.transform(samples_filtered.X_train)
+        X_test_tfd = pipeline.transform(samples_filtered.y_train)
+        samples_tfd = Samples(X_train_tfd, samples_filtered.y_train, X_test_tfd, samples_filtered.y_test)
 
-    return (
-        X_train_tfd,
-        y_train,
-        X_test_tfd,
-        y_test,
-        X_test_all_tfd,
-        y_test_all,
-        X_test_all,
-    )
+    return samples_tfd
