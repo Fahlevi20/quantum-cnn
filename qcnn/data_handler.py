@@ -39,9 +39,9 @@ def get_2d_modelling_data(path, target, columns_to_remove=[]):
     
     filename, file_extension = os.path.splitext(path)
 
-    if file_extension == "csv":
+    if file_extension == ".csv":
         raw = pd.read_csv(path)
-    elif file_extension in ["parq", "parquet"]:
+    elif file_extension in [".parq", ".parquet"]:
         raw = pd.read_parquet(path, engine="auto")
 
     data_utility = DataUtility(raw, target=target, default_subset="modelling")
@@ -66,7 +66,7 @@ def create_train_test_samples(data, data_utility, test_size=.3, random_state=42)
     return Samples(X_train, X_test, y_train, y_test)
 
 
-def get_image_data(path, target):
+def get_image_data(path):
     # TODO this tensforflow import slows things down and isn't needed
     import tensorflow as tf
     (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()

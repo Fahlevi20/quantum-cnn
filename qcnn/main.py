@@ -206,14 +206,14 @@ from data_handler import (
 
 def main(args):
     # Load experiment config
-    config = load_json(args["config_path"])
+    config = load_json(args.config_path)
     # Load data
 
     if config["data"].get("type", None) == "image":
         # With image data raw is a list consisting of X_train, y_train X_test, y_test
-        samples = get_image_data(config["data_path"])
+        samples = get_image_data(config["data"].get("path"))
     else:
-        raw, data_utility = get_2d_modelling_data(config["data"].get("path"))
+        raw, data_utility = get_2d_modelling_data(config["data"].get("path"), config["data"].get("target_column"))
         # Datautility should be used only here to transform the data into a desirable train test set
         # Then when the experiment is ran it is assumed that all "columns" and rows is as needs to be.
         # TODO check if data_utility updates
@@ -234,7 +234,7 @@ if __name__ == "__main__":
 
     # Add the arguments
     parser.add_argument(
-        "config_path",
+        "--config_path",
         metavar="config_path",
         type=str,
         help="the path to the experiment config (json)",

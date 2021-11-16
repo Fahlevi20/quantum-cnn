@@ -177,7 +177,7 @@ def run_classical_model(config, samples, pipeline, prefix, algorithm):
 
     return (t2 - t1)
 
-def run_experiment(config, raw, samples):
+def run_experiment(config, samples):
     result_path = f"{config.get('path')}/{config.get('ID')}"
     all_model_time = {}
     for model_type in ("quantum", "classical"):
