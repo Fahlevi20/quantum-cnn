@@ -28,6 +28,14 @@
             "program": "qcnn/main.py",
             "console": "integratedTerminal",
             "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/110/experiment.json"]
+        },
+        {
+            "name": "Python: 111",
+            "type": "python",
+            "request": "launch",
+            "program": "qcnn/main.py",
+            "console": "integratedTerminal",
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/111/experiment.json"]
         }
     ]
 }

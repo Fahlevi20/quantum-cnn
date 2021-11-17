@@ -459,7 +459,7 @@ def gather_experiment_results(result_path):
 
 #plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
 # %%
-def get_multiclass_results(path, config, prefix):
+def get_multiclass_results_deprecated(path, config, prefix):
 
     y_class_multi = pd.read_csv(
         f"{path}/{config['ID']}/{prefix}-yclass-multi.csv", index_col=0
@@ -481,6 +481,23 @@ def get_multiclass_results(path, config, prefix):
     dsp = ConfusionMatrixDisplay.from_predictions(
         y_test, y_class_multi, ax=axes, cmap=plt.cm.Blues
     )
+    
+    # display_table.loc[f"Truth Average"] = display_table.mean(axis=0)
+    # display_table[f"{groupby[0]} Average"] = display_table.mean(axis=1)
+    return dsp, display_report
+
+def get_multiclass_results(y_test, y_class_multi, target_levels=None, model_name=None):
+
+    display_report = classification_report(y_test, y_class_multi)
+    confusion = confusion_matrix(y_test, y_class_multi, labels=target_levels)
+
+    fig, axes = plt.subplots(1, 1, figsize=(30, 10))
+    axes.grid(False)
+    dsp = ConfusionMatrixDisplay.from_predictions(
+        y_test, y_class_multi, ax=axes, cmap=plt.cm.Blues
+    )
+    axes.set_title(model_name)
+    axes.set_xlabel(display_report)
     # display_table.loc[f"Truth Average"] = display_table.mean(axis=0)
     # display_table[f"{groupby[0]} Average"] = display_table.mean(axis=1)
     return dsp, display_report
