@@ -208,12 +208,11 @@ def main(args):
     # Load experiment config
     config = load_json(args.config_path)
     # Load data
-
     if config["data"].get("type", None) == "image":
         # With image data raw is a list consisting of X_train, y_train X_test, y_test
         samples = get_image_data(config["data"].get("path"))
     else:
-        
+
         target = config["data"].get("target_column")
         path = config["data"].get("path")
         # TODO rename function to something more generic like read data
@@ -233,10 +232,12 @@ def main(args):
         # ==== End Data Utility ====#
         test_size = config["data"]["sampling"].get("test_size", 0.3)
         random_state = config["data"]["sampling"].get("random_state", 42)
-        # Create test set    
+        # Create test set
         samples = create_train_test_samples(
             X, y, test_size=test_size, random_state=random_state
         )
+        # Move to function TODO
+        samples.y_test.to_csv(f"{config.get('path')}/{config.get('ID')}/y_test.csv")
     model_execution_times = run_experiment(config, samples)
     # save_json(model_execution_times) TODO
     print("Experiment Done")

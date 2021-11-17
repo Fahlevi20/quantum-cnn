@@ -9,7 +9,7 @@
             "name": "Python: 108",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "qcnn/main.py",
             "console": "integratedTerminal",
             "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/108/experiment.json"]
         },
@@ -17,9 +17,17 @@
             "name": "Python: 109",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "qcnn/main.py",
             "console": "integratedTerminal",
             "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/109/experiment.json"]
+        },
+        {
+            "name": "Python: 110",
+            "type": "python",
+            "request": "launch",
+            "program": "qcnn/main.py",
+            "console": "integratedTerminal",
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/110/experiment.json"]
         }
     ]
 }

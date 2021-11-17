@@ -177,7 +177,7 @@ def apply_preprocessing(
 
     else:
         # Preprocessing
-        if classification_type == "ova":
+        if classification_type == "ovo":
             samples_filtered = samples
         elif classification_type == "ova":
             samples_filtered = samples

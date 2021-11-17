@@ -67,9 +67,6 @@ from sklearn.model_selection import ParameterGrid
 # def get_dict_permutation(dict_of_list):
 #     """[summary]
 #     """
-# %%
-import itertools as it
-print(list(it.product([],[1])))
 
 # %%
 def run_quantum_model(config, embedding_type, prefix, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples):

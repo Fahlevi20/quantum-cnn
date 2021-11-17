@@ -118,12 +118,16 @@ def train_classical(config, algorithm, pipeline, samples, target_pair=None, mode
 
 
     # TODO ovo already implemented https://scikit-learn.org/stable/modules/svm.html in svm
-    clf = GridSearchCV(model, param_grid)
-    if classification_type == "ovo":
-        clf = OneVsOneClassifier(clf)
-    elif classification_type == "ova":
-        clf = OneVsRestClassifier(clf)
-
+    
+    if not(classification_type=="binary"):
+        # This means param grid should contain estimator__ for each of the estimators paramaters
+        if not(all("estimator__" in key for key in param_grid.keys())):
+            param_grid = {f"estimator__{key}": value for key, value in param_grid.items()}
+        if classification_type == "ovo":
+            model = OneVsOneClassifier(model)
+        elif classification_type == "ova":
+            model = OneVsRestClassifier(model)
+    clf = GridSearchCV(model, param_grid, n_jobs=-1) # error_score="raise" <- for debugging
     clf.fit(samples_tfd.X_train, samples_tfd.y_train)
 
     best_estimator = clf.best_estimator_
