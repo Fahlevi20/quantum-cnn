@@ -72,12 +72,8 @@ import itertools as it
 print(list(it.product([],[1])))
 
 # %%
-def run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples):
-    model_type ="quantum"
-    prefix = (
-                f"{model_type}-{embedding_type}-{scaler_method}"
-                f"-{scaler_param_str}-{selection_method}-{selection_param_str}-{algorithm}"
-            )
+def run_quantum_model(config, embedding_type, prefix, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples):
+    model_type ="quantum"    
     circuit_list = config["model"][model_type][algorithm].get("circuit_list", [])
     pooling_list = config["model"][model_type][algorithm].get("pooling_list", [])
     classification_type = config["model"].get("classification_type", None)
@@ -183,20 +179,21 @@ def run_experiment(config, samples):
     for model_type in ("quantum", "classical"):
         for embedding_type in config["preprocessing"].get(model_type):
             if config["preprocessing"][model_type][embedding_type].get("ignore") is False:
-                for scaler_method, selection_method in it.product(config["preprocessing"][model_type][embedding_type]["scaler"].get("method"), config["preprocessing"][model_type][embedding_type]["feature_selection"].get("method")):
+                scaler_methods = config["preprocessing"][model_type][embedding_type]["scaler"].get("method")
+                selection_methods = config["preprocessing"][model_type][embedding_type]["feature_selection"].get("method")
+                for scaler_method, selection_method in it.product(scaler_methods, selection_methods):
                     scaler_params = list(ParameterGrid(config["preprocessing"][model_type][embedding_type]["scaler"]["method"].get(scaler_method)))
                     selection_params = list(ParameterGrid(config["preprocessing"][model_type][embedding_type]["feature_selection"]["method"].get(selection_method)))
                     ordered_combinations = list(
                         it.product(scaler_params, selection_params)
                     )  # Cartesian product is fine here since a(first element) from S1 is different from a(first element) from S2, i.e the combination (a,a) is unique and (a,b)<>(b,a)
-                    for scaler_param, selection_parm in ordered_combinations:
-                        preprocessing_config=dict(zip([scaler_method, selection_method], [scaler_param, selection_parm]))
-                        pipeline = get_preprocessing_pipeline(preprocessing_config)                
+                    for scaler_param, selection_param in ordered_combinations:
+                        pipeline = get_preprocessing_pipeline(scaler_method, scaler_param, selection_method, selection_param)                
                         selection_param_str = "-".join(
                             [f"{k}={v}" for k, v in scaler_param.items()]
                         )
                         scaler_param_str = "-".join(
-                            [f"{k}={v}" for k, v in selection_method.items()]
+                            [f"{k}={v}" for k, v in selection_param.items()]
                         )
                         for algorithm in config["model"].get(model_type):
                             # quantum algo like qcnn or some other quantum model
@@ -204,11 +201,14 @@ def run_experiment(config, samples):
                                 config["model"][model_type][algorithm].get("ignore", True)
                                 == False
                             ):
-                                
+                                prefix = (
+                                    f"{model_type}-{embedding_type}-{scaler_method}"
+                                    f"-{scaler_param_str}-{selection_method}-{selection_param_str}-{algorithm}"
+                                )
                                 all_model_time[f"{algorithm}"] = {}
                                 if model_type=="quantum":
                                     model_time= run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples)
                                 elif model_type == "classical":
-                                    model_time = run_classical_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples)  
+                                    model_time = run_classical_model(config, samples, pipeline, prefix, algorithm)  
                                 all_model_time[f"{algorithm}"] = model_time
     return all_model_time

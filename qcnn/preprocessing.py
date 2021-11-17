@@ -53,62 +53,42 @@ def filter_embedding_options(embedding_list):
     return embeddings
 
 
-def get_preprocessing_pipeline(config):
-    """Returns a pipeline that handles the pre-processing part of the model (this step is quantum/classical agnostic).
+def get_preprocessing_pipeline(
+    scaler_method, scaler_params, selection_method, selection_params
+):
+    """
+    TODO update docstring it's out of date
+    Returns a pipeline that handles the pre-processing part of the model (this step is quantum/classical agnostic).
     Currently the preprocessing pipeline consists of two steps, a scaling and feature selection step. Each of these have
     different configurable properties. This function takes in a slice of a more general config (1 permutation in a sense...example below):
     A general config will contain all the paramaters to try out
-        general_config = {
-                "scaler": {
-                    "method": ["standard", "minmax"],
-                    "standard_params": {},
-                    "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
-                },
-                "feature_selection": {
-                    "method": ["pca"],
-                    "pca_params": {"n_components": [8]},
-                    "tree_params": {"max_features": [8], "n_estimators": [50]},
-                },
-            }
-    The config that is sent through will be one specific iteration/slice of that general config
-        config = {
-                "scaler": {
-                    "method": "minmax",
-                    "minmax_params": {"feature_range": (0, np.pi / 2)},
-                },
-                "feature_selection": {
-                    "method": "pca",
-                    "pca_params": {"n_components": 8},
-                },
-            }
 
-    Args:
-        config (dict): This is a dictionary which contains the specific pipeline configuration
+
     """
-    scaler_method = config["scaler"].get("method", None)
-    scaler_params = config["scaler"].get(f"{scaler_method}_params", [])
-    selection_method = config["feature_selection"].get("method", "pca")
-    selection_params = config["feature_selection"].get(f"{selection_method}_params", [])
-
     # Define Scaler
-    if scaler_method == None:
+    if scaler_method == None or scaler_method == "identity":
         scaler = (
-            "scaler",
+            "identity_scaler",
             IdentityTransformer(),
         )
     elif scaler_method == "minmax":
         scaler = (
-            "scaler",
+            scaler_method,
             preprocessing.MinMaxScaler(**scaler_params),
         )
     elif scaler_method == "standard":
         scaler = (
-            "scaler",
+            scaler_method,
             preprocessing.StandardScaler(**scaler_params),
         )
 
     # Define feature selector
-    if selection_method == "tree":
+    if selection_method == None or selection_method == "identity":
+        selection = (
+            "identity_selection",
+            IdentityTransformer(),
+        )
+    elif selection_method == "tree":
         selection = (
             selection_method,
             SelectFromModel(
@@ -208,16 +188,16 @@ def apply_preprocessing(
                 | (samples.y_train == target_pair[1])
             )
             test_filter = np.where(
-                (samples.y_train == target_pair[0])
-                | (samples.y_train == target_pair[1])
+                (samples.y_test == target_pair[0])
+                | (samples.y_test == target_pair[1])
             )
             X_train_filtered, X_test_filtered = (
-                samples.X_train[train_filter],
-                samples.X_test[test_filter],
+                samples.X_train.iloc[train_filter],
+                samples.X_test.iloc[test_filter],
             )
             y_train_filtered, y_test_filtered = (
-                samples.y_train[train_filter],
-                samples.y_test[test_filter],
+                samples.y_train.iloc[train_filter],
+                samples.y_test.iloc[test_filter],
             )
 
             y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
@@ -234,7 +214,7 @@ def apply_preprocessing(
 
         # Transform data
         X_train_tfd = pipeline.transform(samples_filtered.X_train)
-        X_test_tfd = pipeline.transform(samples_filtered.y_train)
+        X_test_tfd = pipeline.transform(samples_filtered.X_test)
         samples_tfd = Samples(
             X_train_tfd, samples_filtered.y_train, X_test_tfd, samples_filtered.y_test
         )

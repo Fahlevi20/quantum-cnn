@@ -8,9 +8,9 @@ import pandas as pd
 
 import json
 
-# TODO use numpy normally
 import numpy as np
 
+from data_utility import DataUtility
 from experiment import run_experiment
 from data_handler import (
     save_json,
@@ -213,19 +213,32 @@ def main(args):
         # With image data raw is a list consisting of X_train, y_train X_test, y_test
         samples = get_image_data(config["data"].get("path"))
     else:
-        raw, data_utility = get_2d_modelling_data(config["data"].get("path"), config["data"].get("target_column"))
-        # Datautility should be used only here to transform the data into a desirable train test set
-        # Then when the experiment is ran it is assumed that all "columns" and rows is as needs to be.
-        # TODO check if data_utility updates
-        # in this case of 2d data samples are panda dataframes
+        
+        target = config["data"].get("target_column")
+        path = config["data"].get("path")
+        # TODO rename function to something more generic like read data
+        raw = get_2d_modelling_data(path, target)
+        # ==== Data Utility for data specific manipulations ====#
+        """
+        Datautility should be used only here to transform the data into a desirable train test set, then when the experiment is
+        ran it is assumed that all "columns" and rows is as needs to be. This is specific data interaction from the user and should somehow
+        be abstracted out TODO
+        """
+        columns_to_remove = ["filename", "length"]
+        data_utility = DataUtility(raw, target=target, default_subset="modelling")
+        data_utility.update(
+            columns_to_remove, "included", {"value": False, "reason": "manual"}
+        )
+        X, y, _ = data_utility.get_samples(raw)
+        # ==== End Data Utility ====#
         test_size = config["data"]["sampling"].get("test_size", 0.3)
         random_state = config["data"]["sampling"].get("random_state", 42)
-
+        # Create test set    
         samples = create_train_test_samples(
-            raw, data_utility, test_size=test_size, random_state=random_state
+            X, y, test_size=test_size, random_state=random_state
         )
     model_execution_times = run_experiment(config, samples)
-    save_json(model_execution_times)
+    # save_json(model_execution_times) TODO
     print("Experiment Done")
 
 

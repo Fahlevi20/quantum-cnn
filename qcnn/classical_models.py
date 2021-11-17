@@ -45,8 +45,8 @@ def store_results(
         os.makedirs(result_path)
 
     # Give expirment context
-    with open(f"{result_path}/experiment_config.json", "w+") as f:
-        json.dump(config, f, indent=4)
+    # with open(f"{result_path}/experiment_config.json", "w+") as f:
+    #     json.dump(config, f, indent=4)
 
     # print(f"Storing resuts to:\n {result_path}")
     pd.DataFrame(y_hat).to_csv(f"{result_path}/{model_name}-yhat.csv")
