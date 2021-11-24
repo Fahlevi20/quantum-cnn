@@ -8,12 +8,8 @@ from sklearn import feature_selection
 import tensorflow as tf
 
 import circuit_presets
-from qcnn_structure import (
-    QcnnStructure,
-    Layer,
-    train_qcnn,
-)
 
+from quantum_models import train_quantum
 from classical_models import train_classical
 from preprocessing import (
     get_preprocessing_pipeline,
@@ -69,56 +65,57 @@ from sklearn.model_selection import ParameterGrid
 #     """
 
 # %%
-def run_quantum_model(config, embedding_type, prefix, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples):
+def run_quantum_model(config, embedding_type, prefix, algorithm, result_path, pipeline, samples):
     model_type ="quantum"    
     circuit_list = config["model"][model_type][algorithm].get("circuit_list", [])
     pooling_list = config["model"][model_type][algorithm].get("pooling_list", [])
     classification_type = config["model"].get("classification_type", None)
     model_time = {}
-    for circ_pool_combination in it.product(circuit_list, pooling_list):
-        if classification_type == "binary":
-            for target_pair in config["data"].get("target_pairs", []):
-                model_name = f"{prefix}-{circ_pool_combination[0]}-{target_pair}"
-                if not (
-                    os.path.exists(
-                        # Check to see if model was already built
-                        f"{result_path}/{model_name}-confusion-matrix.csv"
-                    )
-                ):
-                    qcnn_structure = QcnnStructure(circ_pool_combination)
-                    t1 = time.time()
-                    train_qcnn(
-                        qcnn_structure,
-                        embedding_type,
-                        pipeline,
-                        target_pair,
-                        samples,
-                        config,
-                        model_name=model_name,
-                    )
-                    t2 = time.time()
-                    model_time[f"{model_name}"] = t2 - t1
-                for custom_structure in config["model"][model_type][algorithm].get("custom_structures", []):
-                    model_name = f"{prefix}-{custom_structure}-{target_pair}"
-                    if not (
-                        os.path.exists(
-                            # Check to see if model was already built
-                            f"{result_path}/{model_name}-confusion-matrix.csv"
-                        )
-                    ):
-                        qcnn_structure = QcnnStructure(custom_structure)
-                        t1 = time.time()
-                        train_qcnn(
-                            qcnn_structure,
-                            embedding_type,
-                            pipeline,
-                            target_pair,
-                            samples,
-                            config,
-                            model_name=model_name,
-                        )
-                        t2 = time.time()
-                        model_time[f"{model_name}"] = t2 - t1
+    
+    for target_pair in config["data"].get("target_pairs", []):
+        for circ_pool_combo in it.product(circuit_list, pooling_list):
+            model_name = f"{prefix}-{circ_pool_combo[0]}-{target_pair}"
+            if not (
+                os.path.exists(
+                    # Check to see if model was already built
+                    f"{result_path}/{model_name}-confusion-matrix.csv"
+                )
+            ):
+                t1 = time.time()
+                train_quantum(
+                    config,
+                    circ_pool_combo,
+                    embedding_type,
+                    algorithm,
+                    pipeline,                    
+                    samples,                    
+                    target_pair,
+                    model_name=model_name,
+                )
+                t2 = time.time()
+                model_time[f"{model_name}"] = t2 - t1
+        for custom_structure in config["model"][model_type][algorithm].get("custom_structures", []):
+            model_name = f"{prefix}-{custom_structure}-{target_pair}"
+            if not (
+                os.path.exists(
+                    # Check to see if model was already built
+                    f"{result_path}/{model_name}-confusion-matrix.csv"
+                )
+            ):
+                qcnn_structure = config["model"][model_type][algorithm]["custom_structures"][custom_structure]
+                t1 = time.time()
+                train_quantum(
+                    config,
+                    qcnn_structure,
+                    embedding_type,
+                    algorithm,
+                    pipeline,                    
+                    samples,                    
+                    target_pair,
+                    model_name=model_name,
+                )
+                t2 = time.time()
+                model_time[f"{model_name}"] = t2 - t1
     return model_time
     
     # if config["model"]["classification_type"] == "ovo":
@@ -204,7 +201,7 @@ def run_experiment(config, samples):
                                 )
                                 all_model_time[f"{algorithm}"] = {}
                                 if model_type=="quantum":
-                                    model_time= run_quantum_model(config, embedding_type, scaler_method, scaler_param_str, selection_method, selection_param_str, algorithm, result_path, pipeline, samples)
+                                    model_time= run_quantum_model(config, embedding_type, prefix, algorithm, result_path, pipeline, samples)
                                 elif model_type == "classical":
                                     model_time = run_classical_model(config, samples, pipeline, prefix, algorithm)  
                                 all_model_time[f"{algorithm}"] = model_time

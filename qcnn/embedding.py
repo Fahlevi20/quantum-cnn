@@ -148,7 +148,7 @@ def data_embedding(X, embedding_type="Amplitude", **kwargs):
         zzmap(X, depth=kwargs.get("depth", 2))
 
 
-def apply_encoding(data, config, encoding_option="Angle"):
+def apply_encoding(data, encoding_kwargs, encoding_type="Angle"):
     """Function to apply given encoding option to given data type
 
     Args:
@@ -157,21 +157,20 @@ def apply_encoding(data, config, encoding_option="Angle"):
     """
     n_col = data.shape[0]
     n_wires = 8
-    encoding_option_kwargs = config["preprocessing"]["quantum"][encoding_option].get("kwargs", {})
-    if encoding_option == "Amplitude":
+    if encoding_type == "Amplitude":
         AmplitudeEmbedding(data, wires=range(n_wires), normalize=True, pad_with=0.)
-    elif encoding_option == "Angle":
+    elif encoding_type == "Angle":
         AngleEmbedding(data, wires=range(n_wires), rotation="Y")
-    elif encoding_option == "Angle-compact":
+    elif encoding_type == "Angle-compact":
         AngleEmbedding(data[:n_col], wires=range(n_wires), rotation="X")
         AngleEmbedding(data[n_col : 2 * n_col], wires=range(n_wires), rotation="Y")
-    elif encoding_option == "ZZMap":
-        zzmap(data, depth=encoding_option_kwargs.get("depth", 2))
-    elif encoding_option == "IQP":
-        IQPEmbedding(data, wires=range(n_wires), n_repeats=encoding_option_kwargs.get("depth", 2))
-    elif encoding_option == "displacement":
+    elif encoding_type == "ZZMap":
+        zzmap(data, depth=encoding_kwargs.get("depth", 2))
+    elif encoding_type == "IQP":
+        IQPEmbedding(data, wires=range(n_wires), n_repeats=encoding_kwargs.get("depth", 2))
+    elif encoding_type == "displacement":
         DisplacementEmbedding(data, wires=range(n_wires))
-    elif encoding_option == "Squeeze":
+    elif encoding_type == "Squeeze":
         SqueezingEmbedding(data, wires=range(n_wires))
 
     # elif encoding_option == "QAOA":

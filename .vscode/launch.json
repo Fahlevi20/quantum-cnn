@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Python: 108",
             "type": "python",
@@ -36,6 +37,14 @@
             "program": "qcnn/main.py",
             "console": "integratedTerminal",
             "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/111/experiment.json"]
+        },
+        {
+            "name": "Python: 112",
+            "type": "python",
+            "request": "launch",
+            "program": "qcnn/main.py",
+            "console": "integratedTerminal",
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/112/experiment.json"]
         }
     ]
 }
