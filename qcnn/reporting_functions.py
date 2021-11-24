@@ -6,9 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from ast import literal_eval
-from sklearn.metrics import ConfusionMatrixDisplay
 
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
 from circuit_presets import (
     CIRCUIT_OPTIONS,
@@ -123,11 +122,11 @@ def get_result_table_target_pairs(data, each_var, group_var, metric, group_filte
     # groupby =["circuit", "embedding_option"]
     grouped_data = data.groupby([each_var, group_var])[metric].max()
     grouped_data = grouped_data.unstack(level=0).copy()
-    all_combos = [pair.split("-") for pair in grouped_data.index]
+    all_combos = [pair.split("_") for pair in grouped_data.index]
     distinct_levels = {item for combo in all_combos for item in combo}
     display_table = pd.DataFrame(columns=distinct_levels, index=distinct_levels)
     for index, row in grouped_data.iterrows():
-        target_pair = index.split("-")
+        target_pair = index.split("_")
         display_table.loc[target_pair[0], target_pair[1]] = row[0]
         display_table.loc[target_pair[1], target_pair[0]] = row[0]
 

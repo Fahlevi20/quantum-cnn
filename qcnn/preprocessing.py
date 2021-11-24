@@ -1,6 +1,7 @@
 # Preprocessing should contain embedding + feature reduction logic
 import numpy as np
-
+import os
+from joblib import dump
 import pandas as pd
 import tensorflow as tf
 from sklearn import preprocessing
@@ -124,7 +125,7 @@ def filter_levels(data, feature, levels):
 
 
 def apply_preprocessing(
-    samples, pipeline, classification_type, data_type, target_pair=None
+    samples, pipeline, classification_type, data_type, target_pair=None, model_name="dummy", result_path=None
 ):
 
     if data_type == "image":
@@ -218,5 +219,9 @@ def apply_preprocessing(
         samples_tfd = Samples(
             X_train_tfd, samples_filtered.y_train, X_test_tfd, samples_filtered.y_test
         )
-
+    # Save pipeline TODO function
+    if result_path:
+        if not os.path.exists(result_path):
+            os.makedirs(result_path)
+        dump(pipeline, f"{result_path}/{model_name}-pipeline.joblib")
     return samples_tfd

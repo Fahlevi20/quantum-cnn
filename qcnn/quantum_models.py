@@ -13,13 +13,15 @@ from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from qcnn_estimator import Qcnn_Classifier
 from preprocessing import apply_preprocessing
 
+
 def store_results(
     config,
     model_name,
-    best_estimator,
-    clf_grid_results,
+    clf,
     y_hat,
+    samples_tfd,
     cf_matrix,
+    model_configuration=None
 ):
     """
     Method to store results to a desired path
@@ -34,19 +36,28 @@ def store_results(
 
     # print(f"Storing resuts to:\n {result_path}")
     pd.DataFrame(y_hat).to_csv(f"{result_path}/{model_name}-yhat.csv")
-    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_name}-confusion-matrix.csv")
-    dump(best_estimator, f"{result_path}/{model_name}-estimator.joblib")
-    dump(clf_grid_results, f"{result_path}/{model_name}-clf-grid-results.joblib")   
+    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_name}-confusion_matrix.csv")
+    dump(samples_tfd, f"{result_path}/{model_name}-samples_tfd.joblib")
+    dump(clf, f"{result_path}/{model_name}-clf_results.joblib")
+    if model_configuration:
+        dump(model_configuration, f"{result_path}/{model_name}-model_configuration.joblib")
 
 
-def train_quantum(config, qcnn_structure_permutation, embedding_type, algorithm, pipeline, samples, target_pair=None, model_name="dummy"):
-    """
-
-    """
+def train_quantum(
+    config,
+    qcnn_structure_permutation,
+    embedding_type,
+    algorithm,
+    pipeline,
+    samples,
+    target_pair=None,
+    model_name="dummy",
+    model_configuration=None
+):
+    """ """
     model_type = "quantum"
     save_results = False if config.get("path", None) is None else True
 
-    
     data_type = config["data"].get("type", None)
     # Get model information
     classification_type = config["model"].get("classification_type", "binary")
@@ -57,23 +68,41 @@ def train_quantum(config, qcnn_structure_permutation, embedding_type, algorithm,
     param_grid = config["model"][model_type][algorithm].get("param_grid", {})
 
     # Preprocessing
-    samples_tfd = apply_preprocessing(samples, pipeline, classification_type, data_type, target_pair)
+    result_path = f"{config.get('path')}/{config.get('ID')}"
+    samples_tfd = apply_preprocessing(
+        samples,
+        pipeline,
+        classification_type,
+        data_type,
+        target_pair,
+        model_name=model_name,
+        result_path=result_path,
+    )
 
     # TODO naming consistency with encoding_type, qcnn_structure_permutation etc
-    encoding_kwargs = config["preprocessing"][model_type][embedding_type].get("kwargs", {})
+    encoding_kwargs = config["preprocessing"][model_type][embedding_type].get(
+        "kwargs", {}
+    )
     if algorithm == "qcnn":
-        model = Qcnn_Classifier(layer_defintion=qcnn_structure_permutation, encoding_type=embedding_type, encoding_kwargs=encoding_kwargs)
+        model = Qcnn_Classifier(
+            layer_defintion=qcnn_structure_permutation,
+            encoding_type=embedding_type,
+            encoding_kwargs=encoding_kwargs,
+        )
 
-    
-    if not(classification_type=="binary"):
+    if not (classification_type == "binary"):
         # This means param grid should contain estimator__ for each of the estimators paramaters
-        if not(all("estimator__" in key for key in param_grid.keys())):
-            param_grid = {f"estimator__{key}": value for key, value in param_grid.items()}
+        if not (all("estimator__" in key for key in param_grid.keys())):
+            param_grid = {
+                f"estimator__{key}": value for key, value in param_grid.items()
+            }
         if classification_type == "ovo":
             model = OneVsOneClassifier(model)
         elif classification_type == "ova":
             model = OneVsRestClassifier(model)
-    clf = GridSearchCV(model, param_grid, n_jobs=n_jobs, cv=cv_folds) # error_score="raise" <- for debugging
+    clf = GridSearchCV(
+        model, param_grid, n_jobs=n_jobs, cv=cv_folds
+    )  # error_score="raise" <- for debugging
     clf.fit(samples_tfd.X_train, samples_tfd.y_train)
 
     best_estimator = clf.best_estimator_
@@ -85,8 +114,9 @@ def train_quantum(config, qcnn_structure_permutation, embedding_type, algorithm,
         store_results(
             config,
             model_name,
-            best_estimator,
             clf,
             y_hat,
+            samples_tfd,
             cf_matrix,
+            model_configuration=model_configuration
         )

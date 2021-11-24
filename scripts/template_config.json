@@ -1,4 +1,4 @@
-{ #TODO get a new one this is bad
+{
     "ID": 112,
     "path": "/home/matt/dev/projects/quantum-cnn/experiments",
     "data": {
@@ -6,182 +6,6 @@
             [
                 "classical",
                 "country"
-            ],
-            [
-                "classical",
-                "rock"
-            ],
-            [
-                "classical",
-                "pop"
-            ],
-            [
-                "classical",
-                "hiphop"
-            ],
-            [
-                "classical",
-                "jazz"
-            ],
-            [
-                "classical",
-                "blues"
-            ],
-            [
-                "classical",
-                "disco"
-            ],
-            [
-                "classical",
-                "metal"
-            ],
-            [
-                "classical",
-                "reggae"
-            ],
-            [
-                "country",
-                "rock"
-            ],
-            [
-                "country",
-                "pop"
-            ],
-            [
-                "country",
-                "hiphop"
-            ],
-            [
-                "country",
-                "jazz"
-            ],
-            [
-                "country",
-                "blues"
-            ],
-            [
-                "country",
-                "disco"
-            ],
-            [
-                "country",
-                "metal"
-            ],
-            [
-                "country",
-                "reggae"
-            ],
-            [
-                "rock",
-                "pop"
-            ],
-            [
-                "rock",
-                "hiphop"
-            ],
-            [
-                "rock",
-                "jazz"
-            ],
-            [
-                "rock",
-                "blues"
-            ],
-            [
-                "rock",
-                "disco"
-            ],
-            [
-                "rock",
-                "metal"
-            ],
-            [
-                "rock",
-                "reggae"
-            ],
-            [
-                "pop",
-                "hiphop"
-            ],
-            [
-                "pop",
-                "jazz"
-            ],
-            [
-                "pop",
-                "blues"
-            ],
-            [
-                "pop",
-                "disco"
-            ],
-            [
-                "pop",
-                "metal"
-            ],
-            [
-                "pop",
-                "reggae"
-            ],
-            [
-                "hiphop",
-                "jazz"
-            ],
-            [
-                "hiphop",
-                "blues"
-            ],
-            [
-                "hiphop",
-                "disco"
-            ],
-            [
-                "hiphop",
-                "metal"
-            ],
-            [
-                "hiphop",
-                "reggae"
-            ],
-            [
-                "jazz",
-                "blues"
-            ],
-            [
-                "jazz",
-                "disco"
-            ],
-            [
-                "jazz",
-                "metal"
-            ],
-            [
-                "jazz",
-                "reggae"
-            ],
-            [
-                "blues",
-                "disco"
-            ],
-            [
-                "blues",
-                "metal"
-            ],
-            [
-                "blues",
-                "reggae"
-            ],
-            [
-                "disco",
-                "metal"
-            ],
-            [
-                "disco",
-                "reggae"
-            ],
-            [
-                "metal",
-                "reggae"
             ]
         ],
         "target_column": "label",
@@ -197,7 +21,7 @@
             "Angle": {
                 "scaler": {
                     "method": {
-                        "standar": {},
+                        "standard": {},
                         "minmax": {
                             "feature_range": [
                                 [
@@ -233,12 +57,12 @@
                         }
                     }
                 },
-                "ignore": true
+                "ignore": false
             },
             "IQP": {
                 "scaler": {
                     "method": {
-                        "standar": {},
+                        "standard": {},
                         "minmax": {
                             "feature_range": [
                                 [
@@ -277,12 +101,12 @@
                 "kwargs": {
                     "depth": 10
                 },
-                "ignore": true
+                "ignore": false
             },
             "Amplitude": {
                 "scaler": {
                     "method": {
-                        "standar": {},
+                        "standard": {},
                         "minmax": {
                             "feature_range": [
                                 [
@@ -361,7 +185,7 @@
                         }
                     }
                 },
-                "ignore": false
+                "ignore": true
             },
             "other": {
                 "scaler": {
@@ -382,8 +206,7 @@
         "quantum": {
             "qcnn": {
                 "circuit_list": [
-                    "U_5",
-                    "U_SU4"
+                    "U_5"
                 ],
                 "pooling_list": [
                     "psatz1"
@@ -454,7 +277,12 @@
                         ]
                     }
                 },
-                "ignore": true
+                "param_grid": {
+                    "n_iter": [
+                        1
+                    ]
+                },
+                "ignore": false
             }
         },
         "classical": {
@@ -473,7 +301,7 @@
                         "l2"
                     ]
                 },
-                "ignore": false
+                "ignore": true
             },
             "svm": {
                 "param_grid": {
@@ -489,17 +317,15 @@
                         10
                     ]
                 },
-                "ignore": false
+                "ignore": true
             },
             "cnn": {
                 "param_grid": {},
                 "ignore": true
             }
         },
-        "classification_type": "ovo"
-    },
-    "train": {
-        "iterations": 40
+        "classification_type": "ova",
+        "cv_folds": 5
     },
     "extra_info": "main"
 }

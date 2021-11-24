@@ -1,7 +1,9 @@
 # %%
+from collections import namedtuple
 import os
 import time
 import itertools as it
+from typing import NamedTuple
 import numpy as np
 from sklearn import feature_selection
 
@@ -18,14 +20,35 @@ from postprocessing import get_ovo_classication, get_ova_classication
 from sklearn.model_selection import ParameterGrid
 
 
+Model_Configurations = namedtuple(
+    "Model_Configurations",
+    [
+        "model_type",
+        "algorithm",
+        "classification_type",
+        "embedding_type",
+        "scaler_method",
+        "scaler_param_str",
+        "selection_method",
+        "selection_param_str",        
+        "target_pair",
+        "additional_structure",
+    ],
+)
+
+
 def run_quantum_model(
     config,
     samples,
     pipeline,
-    prefix,
-    algorithm,
     model_type,
+    algorithm,
+    classification_type,
     embedding_type,
+    scaler_method,
+    scaler_param_str,
+    selection_method,
+    selection_param_str,
     target_pair=None,
 ):
     # TODO Probably don't want these functions to rely so heavily on the config
@@ -37,7 +60,19 @@ def run_quantum_model(
 
     for circ_pool_combo in it.product(circuit_list, pooling_list):
         # model name depends on circ_pool_combo which causes some redundancy in the code, i.e. it can be improved by deriving the name earlier
-        model_name = f"{prefix}-{target_pair}-{circ_pool_combo[0]}"
+        model_configuration = Model_Configurations(
+            model_type=model_type,
+            algorithm=algorithm,
+            classification_type=classification_type,
+            embedding_type=embedding_type,
+            scaler_method=scaler_method,
+            scaler_param_str=scaler_param_str,
+            selection_method=selection_method,
+            selection_param_str = selection_param_str,
+            target_pair=target_pair,
+            additional_structure=circ_pool_combo,
+        )
+        model_name = '-'.join([str(item) for item in model_configuration])
         if not (
             os.path.exists(
                 # Check to see if model was already built
@@ -52,15 +87,28 @@ def run_quantum_model(
                 algorithm,
                 pipeline,
                 samples,
-                target_pair,
+                target_pair,                
                 model_name=model_name,
+                model_configuration=model_configuration,
             )
             t2 = time.time()
             model_time[f"{model_name}"] = t2 - t1
     for custom_structure in config["model"][model_type][algorithm].get(
         "custom_structures", []
     ):
-        model_name = f"{prefix}-{target_pair}-{custom_structure}"
+        model_configuration = Model_Configurations(
+            model_type=model_type,
+            algorithm=algorithm,
+            classification_type=classification_type,
+            embedding_type=embedding_type,
+            scaler_method=scaler_method,
+            scaler_param_str=scaler_param_str,
+            selection_method=selection_method,
+            selection_param_str = selection_param_str,
+            target_pair=target_pair,
+            additional_structure=custom_structure,
+        )
+        model_name = '-'.join([str(item) for item in model_configuration])
         if not (
             os.path.exists(
                 # Check to see if model was already built
@@ -80,6 +128,7 @@ def run_quantum_model(
                 samples,
                 target_pair,
                 model_name=model_name,
+                model_configuration=model_configuration,
             )
             t2 = time.time()
             model_time[f"{model_name}"] = t2 - t1
@@ -90,14 +139,48 @@ def run_quantum_model(
 
 
 def run_classical_model(
-    config, samples, pipeline, prefix, algorithm, model_type, target_pair=None
+    config,
+    samples,
+    pipeline,
+    model_type,
+    algorithm,
+    classification_type,
+    embedding_type,
+    scaler_method,
+    scaler_param_str,
+    selection_method,
+    selection_param_str,
+    target_pair=None,
 ):
     classification_type = config["model"].get("classification_type", None)
     model_time = {}
     if target_pair:
-        model_name = f"{prefix}-{algorithm}-{target_pair}"
+        model_configuration = Model_Configurations(
+            model_type=model_type,
+            algorithm=algorithm,
+            classification_type=classification_type,
+            embedding_type=embedding_type,
+            scaler_method=scaler_method,
+            scaler_param_str=scaler_param_str,
+            selection_method=selection_method,
+            selection_param_str = selection_param_str,
+            target_pair=target_pair,
+            additional_structure=None,
+        )
     else:
-        model_name = f"{prefix}-{algorithm}-{classification_type}"
+        model_configuration = Model_Configurations(
+            model_type=model_type,
+            algorithm=algorithm,
+            classification_type=classification_type,
+            embedding_type=embedding_type,
+            scaler_method=scaler_method,
+            scaler_param_str=scaler_param_str,
+            selection_method=selection_method,
+            selection_param_str = selection_param_str,
+            target_pair=None,
+            additional_structure=None,
+        )
+    model_name = '-'.join([str(item) for item in model_configuration])
     t1 = time.time()
     # Train and store results
     train_classical(
@@ -107,6 +190,7 @@ def run_classical_model(
         samples,
         target_pair=target_pair,
         model_name=model_name,
+        model_configuration=model_configuration,
     )
     t2 = time.time()
     model_time[f"{model_name}"] = t2 - t1
@@ -156,10 +240,10 @@ def run_experiment(config, samples):
                             selection_method,
                             selection_param,
                         )
-                        selection_param_str = "-".join(
+                        selection_param_str = "_".join(
                             [f"{k}={v}" for k, v in scaler_param.items()]
                         )
-                        scaler_param_str = "-".join(
+                        scaler_param_str = "_".join(
                             [f"{k}={v}" for k, v in selection_param.items()]
                         )
                         for algorithm in config["model"].get(model_type):
@@ -175,10 +259,10 @@ def run_experiment(config, samples):
                                 )
 
                                 prefix = (
-                                    f"{model_type}-{embedding_type}-{scaler_method}"
-                                    f"-{scaler_param_str}-{selection_method}-{selection_param_str}-{algorithm}-{classification_type}"
+                                    f"{model_type}-{algorithm}-{classification_type}-{embedding_type}-{scaler_method}"
+                                    f"-{scaler_param_str}-{selection_method}-{selection_param_str}"
                                 )
-                                all_model_time[f"{algorithm}"] = {}
+
                                 if classification_type == "binary":
                                     for target_pair in config["data"].get(
                                         "target_pairs", []
@@ -188,10 +272,14 @@ def run_experiment(config, samples):
                                                 config,
                                                 samples,
                                                 pipeline,
-                                                prefix,
-                                                algorithm,
                                                 model_type,
+                                                algorithm,
+                                                classification_type,
                                                 embedding_type,
+                                                scaler_method,
+                                                scaler_param_str,
+                                                selection_method,
+                                                selection_param_str,
                                                 target_pair=target_pair,
                                             )
                                         elif model_type == "classical":
@@ -199,9 +287,14 @@ def run_experiment(config, samples):
                                                 config,
                                                 samples,
                                                 pipeline,
-                                                prefix,
-                                                algorithm,
                                                 model_type,
+                                                algorithm,
+                                                classification_type,
+                                                embedding_type,
+                                                scaler_method,
+                                                scaler_param_str,
+                                                selection_method,
+                                                selection_param_str,
                                                 target_pair=target_pair,
                                             )
                                     all_model_time[f"{algorithm}"] = model_time
@@ -211,10 +304,14 @@ def run_experiment(config, samples):
                                             config,
                                             samples,
                                             pipeline,
-                                            prefix,
-                                            algorithm,
                                             model_type,
+                                            algorithm,
+                                            classification_type,
                                             embedding_type,
+                                            scaler_method,
+                                            scaler_param_str,
+                                            selection_method,
+                                            selection_param_str,
                                             target_pair=None,
                                         )
                                     elif model_type == "classical":
@@ -222,9 +319,14 @@ def run_experiment(config, samples):
                                             config,
                                             samples,
                                             pipeline,
-                                            prefix,
-                                            algorithm,
                                             model_type,
+                                            algorithm,
+                                            classification_type,
+                                            embedding_type,
+                                            scaler_method,
+                                            scaler_param_str,
+                                            selection_method,
+                                            selection_param_str,
                                             target_pair=None,
                                         )
                                     all_model_time[f"{algorithm}"] = model_time

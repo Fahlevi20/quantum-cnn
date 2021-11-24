@@ -32,10 +32,11 @@ def filter_levels(data, feature, levels):
 def store_results(
     config,
     model_name,
-    best_estimator,
-    clf_grid_results,
+    clf,
     y_hat,
+    samples_tfd,
     cf_matrix,
+    model_configuration=None
 ):
     """
     Method to store results to a desired path
@@ -50,13 +51,15 @@ def store_results(
 
     # print(f"Storing resuts to:\n {result_path}")
     pd.DataFrame(y_hat).to_csv(f"{result_path}/{model_name}-yhat.csv")
-    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_name}-confusion-matrix.csv")
-    dump(best_estimator, f"{result_path}/{model_name}-estimator.joblib")
-    dump(clf_grid_results, f"{result_path}/{model_name}-clf-grid-results.joblib")    
+    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_name}-confusion_matrix.csv")
+    dump(samples_tfd, f"{result_path}/{model_name}-samples_tfd.joblib")
+    dump(clf, f"{result_path}/{model_name}-clf_results.joblib")
+    if model_configuration:
+        dump(model_configuration, f"{result_path}/{model_name}-model_configuration.joblib")  
     
 
 
-def train_classical(config, algorithm, pipeline, samples, target_pair=None, model_name="dummy"):
+def train_classical(config, algorithm, pipeline, samples, target_pair=None, model_name="dummy", model_configuration=None):
     """[summary]
 
     Args:
@@ -87,7 +90,8 @@ def train_classical(config, algorithm, pipeline, samples, target_pair=None, mode
     param_grid = config["model"][model_type][algorithm].get("param_grid", {})
 
     # Preprocessing
-    samples_tfd = apply_preprocessing(samples, pipeline, classification_type, data_type, target_pair)
+    result_path = f"{config.get('path')}/{config.get('ID')}"
+    samples_tfd = apply_preprocessing(samples, pipeline, classification_type, data_type, target_pair, model_name=model_name, result_path=result_path)
 
     if algorithm == "svm":
         model = svm.SVC()
@@ -141,8 +145,9 @@ def train_classical(config, algorithm, pipeline, samples, target_pair=None, mode
         store_results(
             config,
             model_name,
-            best_estimator,
             clf,
             y_hat,
+            samples_tfd,
             cf_matrix,
+            model_configuration=model_configuration
         )

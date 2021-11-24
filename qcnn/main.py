@@ -238,6 +238,7 @@ def main(args):
         )
         # Move to function TODO
         samples.y_test.to_csv(f"{config.get('path')}/{config.get('ID')}/y_test.csv")
+        samples.X_test.to_csv(f"{config.get('path')}/{config.get('ID')}/X_test.csv")
     model_execution_times = run_experiment(config, samples)
     # save_json(model_execution_times) TODO
     print("Experiment Done")
