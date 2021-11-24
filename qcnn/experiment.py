@@ -17,172 +17,145 @@ from preprocessing import (
 from postprocessing import get_ovo_classication, get_ova_classication
 from sklearn.model_selection import ParameterGrid
 
-# %%
-# config = {
-#         "a": [1,2,3],
-#         "b": [4,5,6]
-#         }
-# general_config = {
-#                 "scaler": {
-#                     "method": ["standard", "minmax"],
-#                     "standard_params": {},
-#                     "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
-#                 },
-#                 "feature_selection": {
-#                     "method": ["pca"],
-#                     "pca_params": {"n_components": [8]},
-#                     "tree_params": {"max_features": [8], "n_estimators": [50]},
-#                 },
-#             }
 
-# general_config = {
-#     "scaler": {
-#         "method": {
-#             "standard": {},
-#             "minmax": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
-#         },
-#         "ignore": False,
-#     },
-#     "feature_selection": {
-#         "method": {
-#             "pca": {"n_components": [8]},
-#             "tree": {"max_features": [8], "n_estimators": [50]},
-#         },
-#     },
-# }
-# for scaler, feature_selection in it.product(general_config["scaler"].get("method"), general_config["feature_selection"].get("method")):
-#     scaler_params = list(ParameterGrid(general_config["scaler"]["method"].get(scaler)))
-#     feature_selection_params = list(ParameterGrid(general_config["feature_selection"]["method"].get(feature_selection)))
-#     ordered_combinations = list(
-#         it.product(scaler_params, feature_selection_params)
-#     )  # Cartesian product is fine here since a(first element) from S1 is different from a(first element) from S2, i.e the combination (a,a) is unique and (a,b)<>(b,a)
-#     for preprocess_combination in ordered_combinations:
-#         print(f"{scaler}-{feature_selection}\n{preprocess_combination}")
-
-# %%
-# def get_dict_permutation(dict_of_list):
-#     """[summary]
-#     """
-
-# %%
-def run_quantum_model(config, embedding_type, prefix, algorithm, result_path, pipeline, samples):
-    model_type ="quantum"    
+def run_quantum_model(
+    config,
+    samples,
+    pipeline,
+    prefix,
+    algorithm,
+    model_type,
+    embedding_type,
+    target_pair=None,
+):
+    # TODO Probably don't want these functions to rely so heavily on the config
+    result_path = f"{config.get('path')}/{config.get('ID')}"
     circuit_list = config["model"][model_type][algorithm].get("circuit_list", [])
     pooling_list = config["model"][model_type][algorithm].get("pooling_list", [])
     classification_type = config["model"].get("classification_type", None)
     model_time = {}
-    
-    for target_pair in config["data"].get("target_pairs", []):
-        for circ_pool_combo in it.product(circuit_list, pooling_list):
-            model_name = f"{prefix}-{circ_pool_combo[0]}-{target_pair}"
-            if not (
-                os.path.exists(
-                    # Check to see if model was already built
-                    f"{result_path}/{model_name}-confusion-matrix.csv"
-                )
-            ):
-                t1 = time.time()
-                train_quantum(
-                    config,
-                    circ_pool_combo,
-                    embedding_type,
-                    algorithm,
-                    pipeline,                    
-                    samples,                    
-                    target_pair,
-                    model_name=model_name,
-                )
-                t2 = time.time()
-                model_time[f"{model_name}"] = t2 - t1
-        for custom_structure in config["model"][model_type][algorithm].get("custom_structures", []):
-            model_name = f"{prefix}-{custom_structure}-{target_pair}"
-            if not (
-                os.path.exists(
-                    # Check to see if model was already built
-                    f"{result_path}/{model_name}-confusion-matrix.csv"
-                )
-            ):
-                qcnn_structure = config["model"][model_type][algorithm]["custom_structures"][custom_structure]
-                t1 = time.time()
-                train_quantum(
-                    config,
-                    qcnn_structure,
-                    embedding_type,
-                    algorithm,
-                    pipeline,                    
-                    samples,                    
-                    target_pair,
-                    model_name=model_name,
-                )
-                t2 = time.time()
-                model_time[f"{model_name}"] = t2 - t1
-    return model_time
-    
-    # if config["model"]["classification_type"] == "ovo":
-    #     # TODO this should work by loading saved files and then doing ovo or ova
-    #     # If model should apply ovo strategy, TODO this can be done better if I can represent the model as a SKLearn classifier
-    #     y_class_multi, row_prediction_history = get_ovo_classication(
-    #         y_hat_history, y_test, config, store_results=True, prefix=prefix
-    #     )
-    # elif config["model"]["classification_type"] == "ova":
-    #     # If model should apply ovo strategy, TODO this can be done better if I can represent the model as a SKLearn classifier
-    #     y_class_multi, row_prediction_history = get_ova_classication(
-    #         y_hat_history, y_test, config, store_results=True, prefix=prefix
-    #     )
-# I can take the preprocessing one step further by searching for the built in methods in SKLearn
 
-def run_classical_model(config, samples, pipeline, prefix, algorithm):
+    for circ_pool_combo in it.product(circuit_list, pooling_list):
+        # model name depends on circ_pool_combo which causes some redundancy in the code, i.e. it can be improved by deriving the name earlier
+        model_name = f"{prefix}-{target_pair}-{circ_pool_combo[0]}"
+        if not (
+            os.path.exists(
+                # Check to see if model was already built
+                f"{result_path}/{model_name}-confusion-matrix.csv"
+            )
+        ):
+            t1 = time.time()
+            train_quantum(
+                config,
+                circ_pool_combo,
+                embedding_type,
+                algorithm,
+                pipeline,
+                samples,
+                target_pair,
+                model_name=model_name,
+            )
+            t2 = time.time()
+            model_time[f"{model_name}"] = t2 - t1
+    for custom_structure in config["model"][model_type][algorithm].get(
+        "custom_structures", []
+    ):
+        model_name = f"{prefix}-{target_pair}-{custom_structure}"
+        if not (
+            os.path.exists(
+                # Check to see if model was already built
+                f"{result_path}/{model_name}-confusion-matrix.csv"
+            )
+        ):
+            qcnn_structure = config["model"][model_type][algorithm][
+                "custom_structures"
+            ][custom_structure]
+            t1 = time.time()
+            train_quantum(
+                config,
+                qcnn_structure,
+                embedding_type,
+                algorithm,
+                pipeline,
+                samples,
+                target_pair,
+                model_name=model_name,
+            )
+            t2 = time.time()
+            model_time[f"{model_name}"] = t2 - t1
+    return model_time
+
+
+# TODO I can take the preprocessing one step further by searching for the built in methods in SKLearn
+
+
+def run_classical_model(
+    config, samples, pipeline, prefix, algorithm, model_type, target_pair=None
+):
     classification_type = config["model"].get("classification_type", None)
     model_time = {}
-    # TODO below is a bit redundant, the train_classical function can probably handle the target_pair + classification
-    # type logic, but can be improved in future
-    if classification_type == "binary":
-        for target_pair in config["data"].get("target_pairs", []):
-            model_name = f"{prefix}-{algorithm}-{target_pair}"
-            t1 = time.time()
-            # Train and store results
-            train_classical(
-                config,
-                algorithm,
-                pipeline,
-                samples,
-                target_pair=target_pair,
-                model_name=model_name,
-            )
-            t2 = time.time()
-            model_time[f"{model_name}"] = t2 - t1
-    elif classification_type in ["ovo", "ova"]:
-            model_name = f"{prefix}-{algorithm}-{classification_type}"
-            t1 = time.time()
-            # Train and store results
-            train_classical(
-                config,
-                algorithm,
-                pipeline,
-                samples,
-                model_name=model_name,
-            )
-            t2 = time.time()
-            model_time[f"{model_name}"] = t2 - t1
+    if target_pair:
+        model_name = f"{prefix}-{algorithm}-{target_pair}"
+    else:
+        model_name = f"{prefix}-{algorithm}-{classification_type}"
+    t1 = time.time()
+    # Train and store results
+    train_classical(
+        config,
+        algorithm,
+        pipeline,
+        samples,
+        target_pair=target_pair,
+        model_name=model_name,
+    )
+    t2 = time.time()
+    model_time[f"{model_name}"] = t2 - t1
 
-    return (t2 - t1)
+    return model_time
+
 
 def run_experiment(config, samples):
-    result_path = f"{config.get('path')}/{config.get('ID')}"
+
     all_model_time = {}
     for model_type in ("quantum", "classical"):
         for embedding_type in config["preprocessing"].get(model_type):
-            if config["preprocessing"][model_type][embedding_type].get("ignore") is False:
-                scaler_methods = config["preprocessing"][model_type][embedding_type]["scaler"].get("method")
-                selection_methods = config["preprocessing"][model_type][embedding_type]["feature_selection"].get("method")
-                for scaler_method, selection_method in it.product(scaler_methods, selection_methods):
-                    scaler_params = list(ParameterGrid(config["preprocessing"][model_type][embedding_type]["scaler"]["method"].get(scaler_method)))
-                    selection_params = list(ParameterGrid(config["preprocessing"][model_type][embedding_type]["feature_selection"]["method"].get(selection_method)))
+            if (
+                config["preprocessing"][model_type][embedding_type].get("ignore")
+                is False
+            ):
+                scaler_methods = config["preprocessing"][model_type][embedding_type][
+                    "scaler"
+                ].get("method")
+                selection_methods = config["preprocessing"][model_type][embedding_type][
+                    "feature_selection"
+                ].get("method")
+                for scaler_method, selection_method in it.product(
+                    scaler_methods, selection_methods
+                ):
+                    scaler_params = list(
+                        ParameterGrid(
+                            config["preprocessing"][model_type][embedding_type][
+                                "scaler"
+                            ]["method"].get(scaler_method)
+                        )
+                    )
+                    selection_params = list(
+                        ParameterGrid(
+                            config["preprocessing"][model_type][embedding_type][
+                                "feature_selection"
+                            ]["method"].get(selection_method)
+                        )
+                    )
                     ordered_combinations = list(
                         it.product(scaler_params, selection_params)
                     )  # Cartesian product is fine here since a(first element) from S1 is different from a(first element) from S2, i.e the combination (a,a) is unique and (a,b)<>(b,a)
                     for scaler_param, selection_param in ordered_combinations:
-                        pipeline = get_preprocessing_pipeline(scaler_method, scaler_param, selection_method, selection_param)                
+                        pipeline = get_preprocessing_pipeline(
+                            scaler_method,
+                            scaler_param,
+                            selection_method,
+                            selection_param,
+                        )
                         selection_param_str = "-".join(
                             [f"{k}={v}" for k, v in scaler_param.items()]
                         )
@@ -192,17 +165,71 @@ def run_experiment(config, samples):
                         for algorithm in config["model"].get(model_type):
                             # quantum algo like qcnn or some other quantum model
                             if (
-                                config["model"][model_type][algorithm].get("ignore", True)
+                                config["model"][model_type][algorithm].get(
+                                    "ignore", True
+                                )
                                 == False
                             ):
+                                classification_type = config["model"].get(
+                                    "classification_type", None
+                                )
+
                                 prefix = (
                                     f"{model_type}-{embedding_type}-{scaler_method}"
-                                    f"-{scaler_param_str}-{selection_method}-{selection_param_str}-{algorithm}"
+                                    f"-{scaler_param_str}-{selection_method}-{selection_param_str}-{algorithm}-{classification_type}"
                                 )
                                 all_model_time[f"{algorithm}"] = {}
-                                if model_type=="quantum":
-                                    model_time= run_quantum_model(config, embedding_type, prefix, algorithm, result_path, pipeline, samples)
-                                elif model_type == "classical":
-                                    model_time = run_classical_model(config, samples, pipeline, prefix, algorithm)  
-                                all_model_time[f"{algorithm}"] = model_time
+                                if classification_type == "binary":
+                                    for target_pair in config["data"].get(
+                                        "target_pairs", []
+                                    ):
+                                        if model_type == "quantum":
+                                            model_time = run_quantum_model(
+                                                config,
+                                                samples,
+                                                pipeline,
+                                                prefix,
+                                                algorithm,
+                                                model_type,
+                                                embedding_type,
+                                                target_pair=target_pair,
+                                            )
+                                        elif model_type == "classical":
+                                            model_time = run_classical_model(
+                                                config,
+                                                samples,
+                                                pipeline,
+                                                prefix,
+                                                algorithm,
+                                                model_type,
+                                                target_pair=target_pair,
+                                            )
+                                    all_model_time[f"{algorithm}"] = model_time
+                                elif classification_type in ["ovo", "ova"]:
+                                    if model_type == "quantum":
+                                        model_time = run_quantum_model(
+                                            config,
+                                            samples,
+                                            pipeline,
+                                            prefix,
+                                            algorithm,
+                                            model_type,
+                                            embedding_type,
+                                            target_pair=None,
+                                        )
+                                    elif model_type == "classical":
+                                        model_time = run_classical_model(
+                                            config,
+                                            samples,
+                                            pipeline,
+                                            prefix,
+                                            algorithm,
+                                            model_type,
+                                            target_pair=None,
+                                        )
+                                    all_model_time[f"{algorithm}"] = model_time
+                                else:
+                                    raise NotImplementedError(
+                                        f"No implementation for classification type: {classification_type}"
+                                    )
     return all_model_time

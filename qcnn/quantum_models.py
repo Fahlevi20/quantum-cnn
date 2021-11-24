@@ -41,7 +41,7 @@ def store_results(
 
 def train_quantum(config, qcnn_structure_permutation, embedding_type, algorithm, pipeline, samples, target_pair=None, model_name="dummy"):
     """
-    
+
     """
     model_type = "quantum"
     save_results = False if config.get("path", None) is None else True
@@ -50,6 +50,8 @@ def train_quantum(config, qcnn_structure_permutation, embedding_type, algorithm,
     data_type = config["data"].get("type", None)
     # Get model information
     classification_type = config["model"].get("classification_type", "binary")
+    cv_folds = config["model"].get("cv_folds", None)
+    n_jobs = config["model"].get("cv_folds", -1)
 
     # Get algorithm information
     param_grid = config["model"][model_type][algorithm].get("param_grid", {})
@@ -71,7 +73,7 @@ def train_quantum(config, qcnn_structure_permutation, embedding_type, algorithm,
             model = OneVsOneClassifier(model)
         elif classification_type == "ova":
             model = OneVsRestClassifier(model)
-    clf = GridSearchCV(model, param_grid, n_jobs=-1) # error_score="raise" <- for debugging
+    clf = GridSearchCV(model, param_grid, n_jobs=n_jobs, cv=cv_folds) # error_score="raise" <- for debugging
     clf.fit(samples_tfd.X_train, samples_tfd.y_train)
 
     best_estimator = clf.best_estimator_

@@ -77,7 +77,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         self._sort_layer_dict_by_order()
         # Get coefficient information
         self.coef_count_, self.coef_indices_ = self._get_coef_information()
-        # Initialize Coefficients
+        # Initialize Coefficients TODO use state
         self.coef_ = np.random.randn(self.coef_count_)
         coefficients = self.coef_
         # Set paramaters that saves training information
@@ -107,7 +107,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         ]
         best_coefficients = self.coef_history_[best_iteration]
         # Set model coefficient corresponding to iteration that had lowest loss
-        self.coef_ = best_coefficients
+        self.coef_ = best_coefficients.numpy()
         self.is_fitted_ = True
         # `fit` should always return `self`
         return self
@@ -115,7 +115,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
     def coefficient_based_loss(self, coef, X, y):
         """Used for training"""
         self.coef_ = coef
-        loss = self.score(X, y, return_loss=True)
+        loss = self.score(X, y, return_loss=True, require_tensor=True)
         return loss
 
     def predict(self, X, cutoff=0.5):
@@ -144,18 +144,22 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
 
         return y_hat_clf
 
-    def predict_proba(self, X):
-        y_hat = [quantum_node(x, self) for x in X]
+    def predict_proba(self, X, require_tensor=False):
+        if require_tensor:
+            y_hat = [quantum_node(x, self) for x in X]
+        else:
+            y_hat = np.array([quantum_node(x, self).numpy() for x in X])
+        
         return y_hat
 
-    def score(self, X, y, return_loss=False):
+    def score(self, X, y, return_loss=False, **kwargs):
         """Returns the score (bigger is better) of the current model. Can specify to return
         the loss (which is the negative of the score). Reason to return loss is for things like training
         as to minimize loss
         """
         # Different for hierarchical
 
-        y_pred = self.predict_proba(X)
+        y_pred = self.predict_proba(X, **kwargs)
         if self.cost == "mse":
             loss = square_loss(y, y_pred)
             # negates loss if return_loss is False so that larger values loss values
@@ -283,9 +287,6 @@ DEVICE = qml.device("default.qubit", wires=8)
 @qml.qnode(DEVICE)
 def quantum_node(X, classifier):
     classifier = classifier.numpy()
-    if len(X.numpy()) > 8:
-        #raise Warning("X must only have 8 or less features, the algorithm select ")
-        X = X[range(8)]
     apply_encoding(
         X,
         encoding_type=classifier.encoding_type,
