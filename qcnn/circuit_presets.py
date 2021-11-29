@@ -55,6 +55,7 @@ def p_3(circuit, params):
     circuit(params, wires=[0, 4])
 
 
+
 # Unitary Ansatze for Convolutional Layer
 def U_TTN(params, wires):
     qml.RY(params[0], wires=wires[0])

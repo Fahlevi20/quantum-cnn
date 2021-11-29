@@ -1,0 +1,291 @@
+{
+    "ID": 118,
+    "path": "/home/matt/dev/projects/quantum-cnn/experiments",
+    "data": {
+        "target_pairs": [
+            [
+                "rock",
+                "reggae"
+            ],
+            [
+                "rock",
+                "blues"
+            ],
+            [
+                "classical",
+                "disco"
+            ],
+            [
+                "pop",
+                "disco"
+            ]
+        ],
+        "target_column": "label",
+        "type": "2d",
+        "path": "/home/matt/dev/projects/quantum-cnn/data/archive/Data/features_30_sec.csv",
+        "sampling": {
+            "test_size": 0.3,
+            "random_state": 42
+        }
+    },
+    "preprocessing": {
+        "quantum": {
+            "Angle": {
+                "scaler": {
+                    "method": {
+                        "minmax": {
+                            "feature_range": [
+                                [
+                                    0,
+                                    1.5707963267948966
+                                ]
+                            ]
+                        }
+                    }
+                },
+                "feature_selection": {
+                    "method": {
+                        "pca": {
+                            "n_components": [
+                                8
+                            ]
+                        }
+                    }
+                },
+                "ignore": false
+            },
+            "IQP": {
+                "scaler": {
+                    "method": {
+                        "minmax": {
+                            "feature_range": [
+                                [
+                                    0,
+                                    1
+                                ]
+                            ]
+                        }
+                    }
+                },
+                "feature_selection": {
+                    "method": {
+                        "pca": {
+                            "n_components": [
+                                8
+                            ]
+                        }
+                    }
+                },
+                "kwargs": {
+                    "depth": 10
+                },
+                "ignore": false
+            },
+            "Amplitude": {
+                "scaler": {
+                    "method": {
+                        "minmax": {
+                            "feature_range": [
+                                [
+                                    0,
+                                    1
+                                ],
+                                [
+                                    -1,
+                                    1
+                                ],
+                                [
+                                    0,
+                                    1.5707963267948966
+                                ]
+                            ]
+                        }
+                    }
+                },
+                "feature_selection": {
+                    "method": {
+                        "pca": {
+                            "n_components": [
+                                8
+                            ]
+                        },
+                        "tree": {
+                            "max_features": [
+                                8
+                            ],
+                            "n_estimators": [
+                                50
+                            ]
+                        }
+                    }
+                },
+                "ignore": true
+            }
+        },
+        "classical": {
+            "normal": {
+                "scaler": {
+                    "method": {
+                        "minmax": {
+                            "feature_range": [
+                                [
+                                    0,
+                                    1
+                                ]
+                            ]
+                        }
+                    }
+                },
+                "feature_selection": {
+                    "method": {
+                        "pca": {
+                            "n_components": [
+                                8
+                            ]
+                        }
+                    }
+                },
+                "ignore": false
+            },
+            "other": {
+                "scaler": {
+                    "method": {
+                        "identity": {}
+                    }
+                },
+                "feature_selection": {
+                    "method": {
+                        "identity": {}
+                    }
+                },
+                "ignore": true
+            }
+        }
+    },
+    "model": {
+        "quantum": {
+            "qcnn": {
+                "circuit_list": [
+                    "U_5"
+                ],
+                "pooling_list": [
+                    "psatz1"
+                ],
+                "custom_structures": {
+                    "custom_0": {
+                        "c_1": [
+                            0,
+                            "c_1",
+                            "U_5"
+                        ],
+                        "p_1": [
+                            1,
+                            "p_1",
+                            "psatz1"
+                        ],
+                        "c_2": [
+                            2,
+                            "c_2",
+                            "U_SU4"
+                        ],
+                        "p_2": [
+                            3,
+                            "p_2",
+                            "psatz1"
+                        ],
+                        "c_3": [
+                            4,
+                            "c_3",
+                            "U_6"
+                        ],
+                        "p_3": [
+                            5,
+                            "p_3",
+                            "psatz1"
+                        ]
+                    },
+                    "custom_1": {
+                        "c_1": [
+                            0,
+                            "c_1",
+                            "U_5"
+                        ],
+                        "p_1": [
+                            1,
+                            "p_1",
+                            "psatz1"
+                        ],
+                        "c_2": [
+                            2,
+                            "c_2",
+                            "U_SU4"
+                        ],
+                        "p_2": [
+                            3,
+                            "p_2",
+                            "psatz1"
+                        ],
+                        "c_3": [
+                            4,
+                            "c_3",
+                            "U_5"
+                        ],
+                        "p_3": [
+                            5,
+                            "p_3",
+                            "psatz1"
+                        ]
+                    }
+                },
+                "param_grid": {
+                    "n_iter": [
+                        50
+                    ]
+                },
+                "ignore": false
+            }
+        },
+        "classical": {
+            "logistic_regression": {
+                "param_grid": {
+                    "C": [
+                        0.001,
+                        0.01,
+                        0.1,
+                        1.0,
+                        10.0,
+                        100.0,
+                        1000.0
+                    ],
+                    "penalty": [
+                        "l2"
+                    ]
+                },
+                "ignore": false
+            },
+            "svm": {
+                "param_grid": {
+                    "kernel": [
+                        "linear",
+                        "rbf",
+                        "poly",
+                        "sigmoid"
+                    ],
+                    "C": [
+                        0.5,
+                        1,
+                        10
+                    ]
+                },
+                "ignore": false
+            },
+            "cnn": {
+                "param_grid": {},
+                "ignore": true
+            }
+        },
+        "classification_type": "binary",
+        "cv_folds": 5
+    },
+    "extra_info": "main"
+}
