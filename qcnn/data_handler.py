@@ -55,20 +55,18 @@ def create_train_test_samples(X, y, test_size=.3, random_state=42):
     return Samples(X_train, y_train, X_test, y_test)
 
 
-def get_image_data(path):
-    # TODO this tensforflow import slows things down and isn't needed
-    import tensorflow as tf
-    (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
-    X_train, X_test = (
-        X_train[..., np.newaxis] / 255.0,
-        X_test[..., np.newaxis] / 255.0,
-    )
-    ind = np.random.choice(range(X_test.shape[0]), 1000, replace=False)
-    X_test = X_test[ind]
-    y_test = y_test[ind]
-    
-    # # Levels to consider
-    # target_levels = range(10)
-    # target_pairs = [target_pair for target_pair in it.combinations(target_levels, 2)]
+def get_image_data(path, set_name="mnist", **kwargs):
+    if path:
+        pass
+    else:
+        if set_name=="mnist":
+            # TODO this tensforflow import slows things down and isn't needed
+            # %%
+            import tensorflow as tf
+            (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
+        elif set_name=="f_mnist":
+            pass
+        elif set_name=="gtzan":
+            pass
 
     return Samples(X_train, y_train, X_test, y_test)

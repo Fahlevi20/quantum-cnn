@@ -15,6 +15,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Conv1D, MaxPool1D
 
 from preprocessing import apply_preprocessing
+from simple_estimator import Simple_Classifier
 
 # TODO move to seperate file since this is duplicated in qcnn_structure
 def filter_levels(data, feature, levels):
@@ -97,6 +98,8 @@ def train_classical(config, algorithm, pipeline, samples, target_pair=None, mode
         model = svm.SVC()
     elif algorithm == "logistic_regression":
         model= LogisticRegression()
+    elif algorithm == "simple":
+         model = Simple_Classifier()
     elif algorithm == "cnn":
         pass
         # n_cols = X_train_tfd.shape[1]

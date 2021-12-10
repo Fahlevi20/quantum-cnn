@@ -30,7 +30,7 @@ Model_Configurations = namedtuple(
         "scaler_method",
         "scaler_param_str",
         "selection_method",
-        "selection_param_str",        
+        "selection_param_str",
         "target_pair",
         "additional_structure",
     ],
@@ -55,10 +55,11 @@ def run_quantum_model(
     result_path = f"{config.get('path')}/{config.get('ID')}"
     circuit_list = config["model"][model_type][algorithm].get("circuit_list", [])
     pooling_list = config["model"][model_type][algorithm].get("pooling_list", [])
+    wire_pattern_list = config["model"][model_type][algorithm].get("wire_pattern_list", [])
     classification_type = config["model"].get("classification_type", None)
     model_time = {}
 
-    for circ_pool_combo in it.product(circuit_list, pooling_list):
+    for circ_pool_combo in it.product(circuit_list, pooling_list, wire_pattern_list):
         # model name depends on circ_pool_combo which causes some redundancy in the code, i.e. it can be improved by deriving the name earlier
         model_configuration = Model_Configurations(
             model_type=model_type,
@@ -68,11 +69,11 @@ def run_quantum_model(
             scaler_method=scaler_method,
             scaler_param_str=scaler_param_str,
             selection_method=selection_method,
-            selection_param_str = selection_param_str,
+            selection_param_str=selection_param_str,
             target_pair=target_pair,
             additional_structure=circ_pool_combo,
         )
-        model_name = '-'.join([str(item) for item in model_configuration])
+        model_name = "-".join([str(item) for item in model_configuration])
         if not (
             os.path.exists(
                 # Check to see if model was already built
@@ -87,7 +88,7 @@ def run_quantum_model(
                 algorithm,
                 pipeline,
                 samples,
-                target_pair,                
+                target_pair,
                 model_name=model_name,
                 model_configuration=model_configuration,
             )
@@ -104,11 +105,11 @@ def run_quantum_model(
             scaler_method=scaler_method,
             scaler_param_str=scaler_param_str,
             selection_method=selection_method,
-            selection_param_str = selection_param_str,
+            selection_param_str=selection_param_str,
             target_pair=target_pair,
             additional_structure=custom_structure,
         )
-        model_name = '-'.join([str(item) for item in model_configuration])
+        model_name = "-".join([str(item) for item in model_configuration])
         if not (
             os.path.exists(
                 # Check to see if model was already built
@@ -163,7 +164,7 @@ def run_classical_model(
             scaler_method=scaler_method,
             scaler_param_str=scaler_param_str,
             selection_method=selection_method,
-            selection_param_str = selection_param_str,
+            selection_param_str=selection_param_str,
             target_pair=target_pair,
             additional_structure=None,
         )
@@ -176,11 +177,11 @@ def run_classical_model(
             scaler_method=scaler_method,
             scaler_param_str=scaler_param_str,
             selection_method=selection_method,
-            selection_param_str = selection_param_str,
+            selection_param_str=selection_param_str,
             target_pair=None,
             additional_structure=None,
         )
-    model_name = '-'.join([str(item) for item in model_configuration])
+    model_name = "-".join([str(item) for item in model_configuration])
     t1 = time.time()
     # Train and store results
     train_classical(
@@ -213,6 +214,9 @@ def run_experiment(config, samples):
                 selection_methods = config["preprocessing"][model_type][embedding_type][
                     "feature_selection"
                 ].get("method")
+                custom_steps = config["preprocessing"][model_type][embedding_type].get(
+                    "custom", None
+                )
                 for scaler_method, selection_method in it.product(
                     scaler_methods, selection_methods
                 ):
@@ -239,6 +243,7 @@ def run_experiment(config, samples):
                             scaler_param,
                             selection_method,
                             selection_param,
+                            custom_steps=custom_steps,
                         )
                         selection_param_str = "_".join(
                             [f"{k}={v}" for k, v in scaler_param.items()]

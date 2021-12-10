@@ -1,5 +1,7 @@
 # This module contains the set of unitary ansatze that will be used to benchmark the performances of Quantum Convolutional Neural Network (QCNN) in QCNN.ipynb module
 import pennylane as qml
+from math import log2
+import numpy as np
 
 # Specify options
 
@@ -19,6 +21,63 @@ CIRCUIT_OPTIONS = {
 
 POOLING_OPTIONS = {"psatz1": 2, "psatz2": 0, "psatz3": 3}
 
+
+def get_wire_combos(n_wires, step, pool_pattern, wire_to_cut=1):
+    if pool_pattern == "left":
+        # 0 1 2 3 4 5 6 7
+        # x x x x
+        pool_filter = lambda arr: arr[0 : len(arr) // 2 : 1]  # Left
+    elif pool_pattern == "right":
+        # 0 1 2 3 4 5 6 7
+        #         x x x x
+        pool_filter = lambda arr: arr[len(arr) : len(arr) // 2 - 1 : -1]  # Right
+    elif pool_pattern == "eo_even":
+        # 0 1 2 3 4 5 6 7
+        # x   x   x   x
+        pool_filter = lambda arr: arr[0::2]  # eo even
+    elif pool_pattern == "eo_odd":
+        # 0 1 2 3 4 5 6 7
+        #   x   x   x   x
+        pool_filter = lambda arr: arr[1::2]  # eo odd
+    elif pool_pattern == "inside":
+        # 0 1 2 3 4 5 6 7
+        #     x x x x
+        pool_filter = lambda arr: arr[
+            len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1
+        ]  # inside
+    elif pool_pattern == "outside":
+        # 0 1 2 3 4 5 6 7
+        # x x         x x
+        pool_filter = lambda arr: [
+            item
+            for item in arr
+            if not (
+                item
+                in arr[
+                    len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1
+                ]
+            )
+        ]  # outside
+    wire_combos = {}
+    wires = range(n_wires)
+    for layer_ind, i in zip(
+        range(int(log2(n_wires))), range(int(log2(n_wires)), 0, -1)
+    ):
+        conv_size = 2 ** i
+        circle_n = lambda x: x % conv_size
+        wire_combos[f"c_{layer_ind+1}"] = [
+            (wires[x], wires[circle_n(x + step)]) for x in range(conv_size)
+        ]
+        if (i == 1) and (len(wire_combos[f"c_{layer_ind+1}"]) > 1):
+            wire_combos[f"c_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
+
+        wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
+        if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
+            wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
+        # for next iteration
+        cut_wires = [x[wire_to_cut] for x in wire_combos[f"p_{layer_ind+1}"]]
+        wires = [wire for wire in wires if not (wire in cut_wires)]
+    return wire_combos
 
 
 def c_1(circuit, params):
@@ -53,7 +112,6 @@ def p_2(circuit, params):
 
 def p_3(circuit, params):
     circuit(params, wires=[0, 4])
-
 
 
 # Unitary Ansatze for Convolutional Layer
@@ -135,7 +193,7 @@ def U_SO4(params, wires):  # 6 params
     qml.RY(params[5], wires=wires[1])
 
 
-def U_SU4(params, wires):  # 15 params
+def U_SU4(params, wires):  # 15 params arbitrary 2 Qbit unitary
     qml.U3(params[0], params[1], params[2], wires=wires[0])
     qml.U3(params[3], params[4], params[5], wires=wires[1])
     qml.CNOT(wires=[wires[0], wires[1]])
@@ -151,7 +209,9 @@ def U_SU4(params, wires):  # 15 params
 # Pooling Layer
 
 
-def psatz1(params, wires):  # 2 params # TODO classical post processing, quantum teleportation protocall Nielsung and Chuang tunneling protocall 1.3.7 p 26
+def psatz1(
+    params, wires
+):  # 2 params # TODO classical post processing, quantum teleportation protocall Nielsung and Chuang tunneling protocall 1.3.7 p 26
     qml.CRZ(params[0], wires=[wires[0], wires[1]])
     qml.PauliX(wires=wires[0])
     qml.CRX(params[1], wires=[wires[0], wires[1]])
@@ -163,3 +223,9 @@ def psatz2(wires):  # 0 params
 
 def psatz3(*params, wires):  # 3 params
     qml.CRot(*params, wires=[wires[0], wires[1]])
+
+
+# %%
+
+
+# %%

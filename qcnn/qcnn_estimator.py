@@ -9,6 +9,7 @@ import circuit_presets
 from circuit_presets import (
     CIRCUIT_OPTIONS,
     POOLING_OPTIONS,
+    get_wire_combos
 )
 
 
@@ -20,6 +21,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
     estimator = Qcnn_Classifier()
     check_estimator(estimator)
     """
+
     def __init__(
         self,
         n_iter=50,
@@ -29,7 +31,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         cost="cross_entropy",
         encoding_type="Angle",
         encoding_kwargs={},
-        layer_defintion=("U_5", "psatz1"),
+        layer_defintion=("U_5", "psatz1", [8, 1, "eo_even"]),
     ):
         self.n_iter = n_iter
         self.learning_rate = learning_rate
@@ -80,6 +82,14 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         # Initialize Coefficients TODO use state
         self.coef_ = np.random.randn(self.coef_count_)
         coefficients = self.coef_
+        tmp_layer_info = [(layer_name, layer.layer_order) for layer_name, layer in self.layer_dict_.items()]
+        # Gets the layer name with the max order
+        final_layer = max(tmp_layer_info, key=lambda item:item[1])[0]
+        if self.layer_dict_[final_layer].wire_pattern == None:
+            # The default is 4, this mostly makes it backwards compatible
+            self.response_wire_ = 4
+        else:
+            self.response_wire_ = self.layer_dict_[final_layer].wire_pattern[0][1]
         # Set paramaters that saves training information
         self.train_history_ = {"Iteration": [], "Cost": []}
         self.test_history_ = {"Iteration": [], "Cost": []}
@@ -149,7 +159,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             y_hat = [quantum_node(x, self) for x in X]
         else:
             y_hat = np.array([quantum_node(x, self).numpy() for x in X])
-        
+
         return y_hat
 
     def score(self, X, y, return_loss=False, **kwargs):
@@ -165,10 +175,10 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             # negates loss if return_loss is False so that larger values loss values
             # translate to smaller score values (bigger loss = worse score). If return_loss is True
             # Then loss is returned and below expression ends up being score=loss
-            score = (-1 * (not (return_loss)) + return_loss % 2)*loss
+            score = (-1 * (not (return_loss)) + return_loss % 2) * loss
         elif self.cost == "cross_entropy":
             loss = cross_entropy(y, y_pred)
-            score = (-1 * (not (return_loss)) + return_loss % 2)*loss
+            score = (-1 * (not (return_loss)) + return_loss % 2) * loss
 
         return score
 
@@ -185,7 +195,11 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
                 layer_order = layer_params[0]
                 layer_fn_name = layer_params[1]
                 circ_name = layer_params[2]
-                layer_fn = getattr(circuit_presets, layer_fn_name)
+                wire_pattern = layer_params[3]
+                layer_fn = getattr(circuit_presets, layer_fn_name, None)
+                if not(wire_pattern == None):
+                    # If wire pattern is specified then ignore layerfn
+                    layer_fn = None
                 circuit_fn = getattr(circuit_presets, circ_name)
                 # TODO document this assumption
                 layer_type, param_count = (
@@ -193,7 +207,6 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
                     if layer_name[0].upper() == "C"
                     else ("pooling", POOLING_OPTIONS[circ_name])
                 )
-    
 
                 layer_dict[layer_name] = Layer(
                     layer_fn,
@@ -201,9 +214,10 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
                     layer_type,
                     param_count,
                     layer_order,
+                    wire_pattern,
                 )
             return layer_dict.copy()
-        elif type(layer_defintion) == type(tuple()) and len(layer_defintion) == 2:
+        elif type(layer_defintion) == type(tuple()) and len(layer_defintion) == 3:
             """
             The following is the default structure, it can be manually constructed as follows:
             layer_dict = {
@@ -218,22 +232,30 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             # TODO maybe named tuple is better here
             circ_name = layer_defintion[0]
             pool_name = layer_defintion[1]
+            wire_pattern = layer_defintion[2]
+            wire_combos = get_wire_combos(wire_pattern[0], wire_pattern[1], wire_pattern[2])
+            
+
             layer_dict = {}
-            for layer_index in range(6):
+            layer_index = 0
+            for layer_name, wire_combo in wire_combos.items():
                 layer_order = layer_index
                 layer_type, prefix, param_count, circuit_fn_name = (
                     ("convolutional", "c", CIRCUIT_OPTIONS[circ_name], circ_name)
-                    if layer_index % 2 == 0
+                    if layer_name[0].upper()=="C"
                     else ("pooling", "p", POOLING_OPTIONS[pool_name], pool_name)
                 )
-                layer_fn_name = f"{prefix}_{int(np.ceil((layer_index+1)/2))}"
-                layer_dict[layer_fn_name] = Layer(
-                    getattr(circuit_presets, layer_fn_name),
+                # layer_fn_name = f"{prefix}_{int(np.ceil((layer_index+1)/2))}"
+                # If wire pattern is empty then use default layer functions            
+                layer_dict[layer_name] = Layer(
+                    None,
                     getattr(circuit_presets, circuit_fn_name),
                     layer_type,
                     param_count,
                     layer_order,
+                    wire_combo,
                 )
+                layer_index = layer_index +1
             return layer_dict.copy()
         else:
             raise NotImplementedError(
@@ -253,7 +275,11 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
 
     def _evaluate(self):
         for layer_name, layer in self.layer_dict_.items():
-            layer.layer_fn(layer.circuit, self.coef_[self.coef_indices_[layer_name]])
+            if layer.layer_fn == None:
+                for wire_con in layer.wire_pattern:
+                    layer.circuit(self.coef_[self.coef_indices_[layer_name]], wire_con)
+            else:
+                layer.layer_fn(layer.circuit, self.coef_[self.coef_indices_[layer_name]])
 
     def _get_coef_information(self):
         total_coef_count = 0
@@ -273,12 +299,15 @@ class Layer:
     Order doesn't have to be from 0, all layers get sorted purely by order value
     """
 
-    def __init__(self, layer_fn, circuit, layer_type, param_count, layer_order):
+    def __init__(
+        self, layer_fn, circuit, layer_type, param_count, layer_order, wire_pattern
+    ):
         self.layer_fn = layer_fn
         self.circuit = circuit
         self.layer_type = layer_type
         self.param_count = param_count
         self.layer_order = layer_order
+        self.wire_pattern = wire_pattern
 
 
 DEVICE = qml.device("default.qubit", wires=8)
@@ -294,9 +323,9 @@ def quantum_node(X, classifier):
     )
     classifier._evaluate()
     if classifier.cost == "mse":
-        result = qml.expval(qml.PauliZ(4))
+        result = qml.expval(qml.PauliZ(classifier.response_wire_))
     elif classifier.cost == "cross_entropy":
-        result = qml.probs(wires=4)
+        result = qml.probs(wires=classifier.response_wire_)
     return result
 
 

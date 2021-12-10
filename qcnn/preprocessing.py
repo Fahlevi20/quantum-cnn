@@ -35,6 +35,28 @@ class IdentityTransformer(BaseEstimator, TransformerMixin):
         return input_array * 1
 
 
+class ImageResize(BaseEstimator, TransformerMixin):
+    """
+    Resizes an image
+    """
+
+    def __init__(self, size=None):
+        self.size = size
+
+    def fit(self, X, y=None):
+        """returns itself"""
+        if self.size == None:
+            # assume image is n * width * height np array
+            self.size = X.shape[1] * X.shape[2]
+        return self
+
+    def transform(self, X, y=None):
+        """TODO automatically does squeezing.. this might not be wanted check"""
+        X_resize = tf.image.resize(X[..., np.newaxis][:], (self.size, 1)).numpy()
+        X_squeezed = tf.squeeze(X_resize).numpy()
+        return X_squeezed
+
+
 def filter_embedding_options(embedding_list):
     """Method to filter out the embedding options dictionary. Removes all embeddings
     not specified in the provided list
@@ -55,7 +77,7 @@ def filter_embedding_options(embedding_list):
 
 
 def get_preprocessing_pipeline(
-    scaler_method, scaler_params, selection_method, selection_params
+    scaler_method, scaler_params, selection_method, selection_params, custom_steps=None
 ):
     """
     TODO update docstring it's out of date
@@ -66,6 +88,21 @@ def get_preprocessing_pipeline(
 
 
     """
+    if custom_steps == None:
+        all_custom_steps = []
+        custom_step = (
+            "identity_step",
+            IdentityTransformer(),
+        )
+        all_custom_steps = all_custom_steps + [custom_step]
+    else:
+        # If there's custom steps to apply, for now it gets applied before
+        
+        all_custom_steps = []
+        for step, step_info in custom_steps.items():
+            if step_info["name"] == "image_resize":
+                custom_step = (step_info["name"], ImageResize(**step_info["params"]))
+            all_custom_steps = all_custom_steps + [custom_step]
     # Define Scaler
     if scaler_method == None or scaler_method == "identity":
         scaler = (
@@ -101,12 +138,11 @@ def get_preprocessing_pipeline(
         )
     elif selection_method == "pca":
         selection = (selection_method, PCA(**selection_params))
-    pipeline = Pipeline(
-        [
-            scaler,
-            selection,
-        ]
-    )
+    elif selection_method == "image_resize":
+        selection = (selection_method, ImageResize(**selection_params))
+
+    steps_list = all_custom_steps + [scaler, selection]
+    pipeline = Pipeline(steps_list)
 
     return pipeline
 
@@ -125,50 +161,47 @@ def filter_levels(data, feature, levels):
 
 
 def apply_preprocessing(
-    samples, pipeline, classification_type, data_type, target_pair=None, model_name="dummy", result_path=None
+    samples,
+    pipeline,
+    classification_type,
+    data_type,
+    target_pair=None,
+    model_name="dummy",
+    result_path=None,
 ):
 
     if data_type == "image":
+        if classification_type == "ovo":
+            samples_filtered = samples
+        elif classification_type == "ova":
+            samples_filtered = samples
+        elif classification_type == "binary":
+            train_filter = np.where(
+                (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+            )
 
-        train_filter = np.where(
-            (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
-        )
+            test_filter = np.where(
+                (samples.y_test == target_pair[0]) | (samples.y_test == target_pair[1])
+            )
+            X_train_filtered, X_test_filtered = (
+                samples.X_train[train_filter],
+                samples.X_test[test_filter],
+            )
+            y_train_filtered, y_test_filtered = (
+                samples.y_train[train_filter],
+                samples.y_test[test_filter],
+            )
+            # TODO this still very hardcoded
+            y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
+            y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)           
 
-        test_filter = np.where(
-            (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
-        )
-        X_train_filtered, X_test_filtered = (
-            samples.X_train[train_filter],
-            samples.X_test[test_filter],
-        )
-        y_train_filtered, y_test_filtered = (
-            samples.y_train[train_filter],
-            samples.y_test[test_filter],
-        )
-        # TODO this still very hardcoded
-        y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
-        y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)
-
-        X_train_filtered = tf.image.resize(X_train_filtered[:], (784, 1)).numpy()
-        X_test_filtered = tf.image.resize(X_test_filtered[:], (784, 1)).numpy()
-        X_train_filtered, X_teX_test_filteredst = tf.squeeze(
-            X_train_filtered
-        ), tf.squeeze(X_test_filtered)
-
-        samples_filtered = Samples(
-            X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered
-        )
+            samples_filtered = Samples(
+                X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered
+            )
         pipeline.fit(samples_filtered.X_train, samples_filtered.y_train)
 
         X_train_tfd = pipeline.transform(samples_filtered.X_train)
-        X_test_tfd = pipeline.transform(samples_filtered.y_train)
-
-        # TODO test out this step
-        X_train_tfd, X_test_tfd = (X_train_tfd - X_train_tfd.min()) * (
-            np.pi / (X_train_tfd.max() - X_train_tfd.min())
-        ), (X_test_tfd - X_test_tfd.min()) * (
-            np.pi / (X_test_tfd.max() - X_test_tfd.min())
-        )
+        X_test_tfd = pipeline.transform(samples_filtered.X_test)
 
         samples_tfd = Samples(
             X_train_tfd, y_train_filtered, X_test_tfd, y_test_filtered
@@ -189,8 +222,7 @@ def apply_preprocessing(
                 | (samples.y_train == target_pair[1])
             )
             test_filter = np.where(
-                (samples.y_test == target_pair[0])
-                | (samples.y_test == target_pair[1])
+                (samples.y_test == target_pair[0]) | (samples.y_test == target_pair[1])
             )
             X_train_filtered, X_test_filtered = (
                 samples.X_train.iloc[train_filter],
