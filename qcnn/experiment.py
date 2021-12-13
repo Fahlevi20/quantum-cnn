@@ -55,7 +55,9 @@ def run_quantum_model(
     result_path = f"{config.get('path')}/{config.get('ID')}"
     circuit_list = config["model"][model_type][algorithm].get("circuit_list", [])
     pooling_list = config["model"][model_type][algorithm].get("pooling_list", [])
-    wire_pattern_list = config["model"][model_type][algorithm].get("wire_pattern_list", [])
+    wire_pattern_list = config["model"][model_type][algorithm].get(
+        "wire_pattern_list", []
+    )
     classification_type = config["model"].get("classification_type", None)
     model_time = {}
 
@@ -227,13 +229,22 @@ def run_experiment(config, samples):
                             ]["method"].get(scaler_method)
                         )
                     )
-                    selection_params = list(
-                        ParameterGrid(
+                    if config["preprocessing"][model_type][embedding_type][
+                        "feature_selection"
+                    ]["method"].get("dont_permute", None):
+                        selection_params = [
                             config["preprocessing"][model_type][embedding_type][
                                 "feature_selection"
                             ]["method"].get(selection_method)
+                        ]
+                    else:
+                        selection_params = list(
+                            ParameterGrid(
+                                config["preprocessing"][model_type][embedding_type][
+                                    "feature_selection"
+                                ]["method"].get(selection_method)
+                            )
                         )
-                    )
                     ordered_combinations = list(
                         it.product(scaler_params, selection_params)
                     )  # Cartesian product is fine here since a(first element) from S1 is different from a(first element) from S2, i.e the combination (a,a) is unique and (a,b)<>(b,a)
@@ -244,12 +255,12 @@ def run_experiment(config, samples):
                             selection_method,
                             selection_param,
                             custom_steps=custom_steps,
-                        )
-                        selection_param_str = "_".join(
+                        )                        
+                        scaler_param_str = "_".join(
                             [f"{k}={v}" for k, v in scaler_param.items()]
                         )
-                        scaler_param_str = "_".join(
-                            [f"{k}={v}" for k, v in selection_param.items()]
+                        selection_param_str = "_".join(
+                            [f"{k}={v[0]}" for k, v in selection_param.items()]
                         )
                         for algorithm in config["model"].get(model_type):
                             # quantum algo like qcnn or some other quantum model

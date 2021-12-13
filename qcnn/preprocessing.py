@@ -35,6 +35,17 @@ class IdentityTransformer(BaseEstimator, TransformerMixin):
         return input_array * 1
 
 
+class CustomMask(BaseEstimator, TransformerMixin):
+    def __init__(self, support_mask):
+        self.support_mask = support_mask
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        return X[:, self.support_mask]
+
+
 class ImageResize(BaseEstimator, TransformerMixin):
     """
     Resizes an image
@@ -97,7 +108,7 @@ def get_preprocessing_pipeline(
         all_custom_steps = all_custom_steps + [custom_step]
     else:
         # If there's custom steps to apply, for now it gets applied before
-        
+
         all_custom_steps = []
         for step, step_info in custom_steps.items():
             if step_info["name"] == "image_resize":
@@ -140,6 +151,10 @@ def get_preprocessing_pipeline(
         selection = (selection_method, PCA(**selection_params))
     elif selection_method == "image_resize":
         selection = (selection_method, ImageResize(**selection_params))
+    elif selection_method == "custom_mask":
+        selection = (selection_method, CustomMask(**selection_params))
+
+
 
     steps_list = all_custom_steps + [scaler, selection]
     pipeline = Pipeline(steps_list)
@@ -177,7 +192,8 @@ def apply_preprocessing(
             samples_filtered = samples
         elif classification_type == "binary":
             train_filter = np.where(
-                (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+                (samples.y_train == target_pair[0])
+                | (samples.y_train == target_pair[1])
             )
 
             test_filter = np.where(
@@ -193,7 +209,7 @@ def apply_preprocessing(
             )
             # TODO this still very hardcoded
             y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
-            y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)           
+            y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)
 
             samples_filtered = Samples(
                 X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered

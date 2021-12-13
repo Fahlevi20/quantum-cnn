@@ -140,9 +140,10 @@ from joblib import dump, load
 from collections import namedtuple
 
 experiment_config = get_file_content(
-    "/home/matt/dev/projects/quantum-cnn/experiments/119/experiment.json"
+    "/home/matt/dev/projects/quantum-cnn/experiments/122/experiment.json"
 )
 path = f"{experiment_config.get('path')}/{experiment_config.get('ID')}"
+X_test = pd.read_csv(f"{path}/X_test.csv")
 Results = namedtuple(
     "Results", ["model_name", "y_test_hat", "clf", "model_configuration", "samples_tfd", "pipeline"]
 )
@@ -170,13 +171,20 @@ for model_name in model_names:
     ]
 print(len(result_list))
 # %%
-filtered_results = [
-    result
-    for result in result_list
-    if result.model_configuration.additional_structure == 'custom_1'
-]
-len(filtered_results)
+# filtered_results = [
+#     result
+#     for result in result_list
+#     if result.model_configuration.additional_structure == 'custom_1'
+# ]
+tmp_result = [result for result in result_list if result.model_name=="quantum-qcnn-binary-Angle-minmax-max_features=8_n_estimators=50-tree-feature_range=[0, 1.5707963267948966]-['classical', 'pop']-('U_5', 'psatz1', [8, 3, 'right'])"]
+#tmp_result = tmp_result[0]
+len(tmp_result)
 
+# %%
+
+a = tmp_result[0]
+a.pipeline.named_steps.get("tree")
+print("a")
 # %%
 from sklearn.datasets import load_iris
 from simple_estimator import Simple_Classifier

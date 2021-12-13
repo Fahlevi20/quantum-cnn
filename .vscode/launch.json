@@ -39,12 +39,12 @@
             "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/111/experiment.json"]
         },
         {
-            "name": "Python: 123",
+            "name": "Python: 126",
             "type": "python",
             "request": "launch",
             "program": "qcnn/main.py",
             "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/123/experiment.json"]
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/126/experiment.json"]
         }
     ]
 }
