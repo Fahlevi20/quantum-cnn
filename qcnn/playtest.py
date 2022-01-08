@@ -129,6 +129,7 @@ import os
 import sys
 import inspect
 import numpy as np
+
 import pandas as pd
 from pprint import pprint
 from reporting_functions import (
@@ -139,52 +140,139 @@ from reporting_functions import (
 from joblib import dump, load
 from collections import namedtuple
 
-experiment_config = get_file_content(
-    "/home/matt/dev/projects/quantum-cnn/experiments/122/experiment.json"
-)
-path = f"{experiment_config.get('path')}/{experiment_config.get('ID')}"
-X_test = pd.read_csv(f"{path}/X_test.csv")
-Results = namedtuple(
-    "Results", ["model_name", "y_test_hat", "clf", "model_configuration", "samples_tfd", "pipeline"]
-)
-model_names = [
-    filename.split("-model_configuration.joblib")[0]
-    for filename in os.listdir(path)
-    if "-model_configuration.joblib" in filename
-]
-result_list = []
-for model_name in model_names:
-    y_test_hat = pd.read_csv(f"{path}/{model_name}-yhat.csv", index_col=0)
-    clf = load(f"{path}/{model_name}-clf_results.joblib")
-    model_configuration = load(f"{path}/{model_name}-model_configuration.joblib")
-    samples_tfd = load(f"{path}/{model_name}-samples_tfd.joblib")
-    pipeline = load(f"{path}/{model_name}-pipeline.joblib")
-    result_list = result_list + [
-        Results(
-            model_name,
-            y_test_hat=y_test_hat,
-            clf=clf,
-            model_configuration=model_configuration,
-            samples_tfd=samples_tfd,
-            pipeline=pipeline,
-        )
+
+def get_model_result_list(experiment_config):
+    path = f"{experiment_config.get('path')}/{experiment_config.get('ID')}"
+    X_test = pd.read_csv(f"{path}/X_test.csv", index_col=0)
+    Results = namedtuple(
+        "Results", ["model_name", "y_test_hat", "clf", "model_configuration", "samples_tfd", "pipeline"]
+    )
+    model_names = [
+        filename.split("-model_configuration.joblib")[0]
+        for filename in os.listdir(path)
+        if "-model_configuration.joblib" in filename
     ]
-print(len(result_list))
+    result_list = []
+    for model_name in model_names:
+        y_test_hat = pd.read_csv(f"{path}/{model_name}-yhat.csv", index_col=0)
+        clf = load(f"{path}/{model_name}-clf_results.joblib")
+        model_configuration = load(f"{path}/{model_name}-model_configuration.joblib")
+        samples_tfd = load(f"{path}/{model_name}-samples_tfd.joblib")
+        pipeline = load(f"{path}/{model_name}-pipeline.joblib")
+        result_list = result_list + [
+            Results(
+                model_name,
+                y_test_hat=y_test_hat,
+                clf=clf,
+                model_configuration=model_configuration,
+                samples_tfd=samples_tfd,
+                pipeline=pipeline,
+            )
+        ]
+    return result_list
+
 # %%
+exp_id_list = [137]
+result_dict = {}
+for exp_id in exp_id_list:
+    experiment_config = get_file_content(
+        f"/home/matt/dev/projects/quantum-cnn/experiments/{exp_id}/experiment.json"
+    )
+    result_dict[exp_id] = get_model_result_list(experiment_config)
+# %%
+all_dict = {}
+data = pd.DataFrame()
+for exp_id, result in result_dict.items():
+    tmp_dict = result[0].clf.best_estimator_.train_history_.copy()
+    tmp_dict["exp_id"] = [exp_id] * len(tmp_dict['Iteration'])
+    data = pd.concat([data, pd.DataFrame(tmp_dict)])
 # filtered_results = [
 #     result
 #     for result in result_list
 #     if result.model_configuration.additional_structure == 'custom_1'
 # ]
-tmp_result = [result for result in result_list if result.model_name=="quantum-qcnn-binary-Angle-minmax-max_features=8_n_estimators=50-tree-feature_range=[0, 1.5707963267948966]-['classical', 'pop']-('U_5', 'psatz1', [8, 3, 'right'])"]
-#tmp_result = tmp_result[0]
-len(tmp_result)
+#tmp_result = [result for result in result_list if result.model_name=="quantum-qcnn-binary-Angle-minmax-max_features=8_n_estimators=50-tree-feature_range=[0, 1.5707963267948966]-['rock', 'reggae']-('U_5', 'psatz1', [8, 1, 'outside'])"]
+
 
 # %%
 
-a = tmp_result[0]
-a.pipeline.named_steps.get("tree")
-print("a")
+
+# %%
+import matplotlib.pyplot as plt
+import seaborn as sns
+figsize=(30, 10)
+plot_data = data.pivot("Iteration", "exp_id", "Cost")
+#data = a.clf.best_estimator_.train_history_
+with sns.axes_style("whitegrid"):
+    fig, axes = plt.subplots(1, 1, figsize=figsize, sharey=True)
+    sns.lineplot(
+        ax=axes,
+        data=plot_data,
+        markers=True,
+        dashes=False,
+    )
+    axes.set_title(f"Train Cost Per Iteration")
+
+
+# array([-0.8038882 ,  0.38266347,  0.26455017, -0.37964004,  0.20714452,
+#        -0.23700476,  0.03584148, -0.02753467, -1.18193767,  0.68775315,
+#         0.57794982,  0.67696884,  0.20787334, -0.94388897, -0.19604747,
+#         1.34532937, -0.4730406 ,  0.21910568, -1.46761429, -0.60966675,
+#        -0.36326917, -1.21621954, -0.71328942,  0.19213284, -0.92900281,
+#         1.66766682,  1.07659751,  0.16031539, -2.12708616,  1.74639568,
+#        -0.92856249,  0.96872548, -1.59363407,  1.63219035, -0.97979345,
+#         0.39311107])
+
+
+# array([ 0.18223275, -0.1662073 , -0.23400546,  0.64319198, -0.66900911,
+#        -0.87290196,  1.23428592, -0.55508484,  0.35165046, -0.20581643,
+#         0.7524456 , -0.07387914,  0.0878729 ,  0.74592785, -1.84711082,
+#         0.17036005, -0.70692405, -0.20232304,  0.38564801, -0.28972861,
+#         0.89350956, -0.9022085 ,  0.55772628, -0.25817608, -0.40217651,
+#        -1.12050764,  0.04375302, -0.84203446, -0.76195598,  0.66834117,
+#        -0.19069866,  1.42414273,  1.11158516,  1.19345173, -1.53246746,
+#        -1.02719161])
+
+# self.coef_ = np.array(
+#             [
+#                 0.1193346,
+#                 -1.29857603,
+#                 0.18556851,
+#                 0.33382759,
+#                 -0.25776149,
+#                 0.25705179,
+#                 1.31814871,
+#                 -0.35030913,
+#                 -0.36404661,
+#                 0.41125868,
+#                 1.02868727,
+#                 1.32078417,
+#                 1.18355149,
+#                 -0.63473673,
+#                 0.44277276,
+#                 0.50545649,
+#                 -0.43902124,
+#                 0.49003917,
+#                 -0.87458557,
+#                 -1.21007646,
+#                 0.64970235,
+#                 -1.07927684,
+#                 -0.22957657,
+#                 -0.75653132,
+#                 0.32538887,
+#                 0.03323765,
+#                 -0.28561954,
+#                 -1.69030752,
+#                 1.89342474,
+#                 0.29929749,
+#                 -0.08119952,
+#                 -1.34889213,
+#                 -0.88747166,
+#                 -0.96870005,
+#                 0.20376645,
+#                 -1.42554811,
+#             ]
+#         )
 # %%
 from sklearn.datasets import load_iris
 from simple_estimator import Simple_Classifier

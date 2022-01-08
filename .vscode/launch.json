@@ -31,20 +31,20 @@
             "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/110/experiment.json"]
         },
         {
-            "name": "Python: 111",
+            "name": "Python: 147",
             "type": "python",
             "request": "launch",
             "program": "qcnn/main.py",
             "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/111/experiment.json"]
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/147/experiment.json"]
         },
         {
-            "name": "Python: 126",
+            "name": "Python: 146",
             "type": "python",
             "request": "launch",
             "program": "qcnn/main.py",
             "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/126/experiment.json"]
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/146/experiment.json"]
         }
     ]
 }

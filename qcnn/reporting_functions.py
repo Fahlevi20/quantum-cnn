@@ -1,13 +1,20 @@
 # %%
+
 import numpy as np
 import pandas as pd
 import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+from joblib import dump, load
+from collections import namedtuple
 from ast import literal_eval
 
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+)
 
 from circuit_presets import (
     CIRCUIT_OPTIONS,
@@ -15,6 +22,48 @@ from circuit_presets import (
 )
 
 from preprocessing import filter_embedding_options, EMBEDDING_OPTIONS
+
+
+def get_model_result_list(experiment_config):
+    path = f"{experiment_config.get('path')}/{experiment_config.get('ID')}"
+    # X_test = pd.read_csv(f"{path}/X_test.csv", index_col=0)
+    Results = namedtuple(
+        "Results",
+        [
+            "model_name",
+            "y_test_hat",
+            "clf",
+            "model_configuration",
+            "samples_tfd",
+            "pipeline",
+        ],
+    )
+    model_names = [
+        filename.split("-model_configuration.joblib")[0]
+        for filename in os.listdir(path)
+        if "-model_configuration.joblib" in filename
+    ]
+    result_list = []
+    for model_name in model_names:
+        y_test_hat = pd.read_csv(f"{path}/{model_name}-yhat.csv", index_col=0)
+        clf = load(f"{path}/{model_name}-clf_results.joblib")
+        model_configuration = load(f"{path}/{model_name}-model_configuration.joblib")
+        samples_tfd = load(f"{path}/{model_name}-samples_tfd.joblib")
+        if os.path.exists(f"{path}/{model_name}-pipeline.joblib"):
+            pipeline = load(f"{path}/{model_name}-pipeline.joblib")
+        else:
+            pipeline = {}
+        result_list = result_list + [
+            Results(
+                model_name,
+                y_test_hat=y_test_hat,
+                clf=clf,
+                model_configuration=model_configuration,
+                samples_tfd=samples_tfd,
+                pipeline=pipeline,
+            )
+        ]
+    return result_list
 
 
 def confusion_matrix_stats(cf_matrix):
@@ -150,7 +199,7 @@ def plot_loss(data, groupby, group_filter=[], figsize=(30, 5)):
         plot_data_test = pd.DataFrame()
         for index, row in loss_history_train.iterrows():
             if type(row[col]) == np.ndarray and check_filter_on_list(
-                group_filter, index[len(index)-1].split("-")
+                group_filter, index[len(index) - 1].split("-")
             ):
                 plot_data_train[index] = row[col]
         plot_data_train["Iteration"] = plot_data_train.index
@@ -158,7 +207,7 @@ def plot_loss(data, groupby, group_filter=[], figsize=(30, 5)):
         plot_data_test = pd.DataFrame()
         for index, row in loss_history_test.iterrows():
             if type(row[col]) == np.ndarray and check_filter_on_list(
-                group_filter, index[len(index)-1].split("-")
+                group_filter, index[len(index) - 1].split("-")
             ):
                 plot_data_test[index] = row[col]
         plot_data_test["Iteration"] = plot_data_test.index
@@ -456,7 +505,7 @@ def gather_experiment_results(result_path):
 # for level in distinct_levels:
 #     plot_loss(result_data, ["circuit", "embedding_option", "target_levels"], [f"{level}"], figsize=(28, 5))
 
-#plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
+# plot_loss(result_data, "circuit", "target_levels", [0], figsize=(28, 5))
 # %%
 def get_multiclass_results_deprecated(path, config, prefix):
 
@@ -480,10 +529,11 @@ def get_multiclass_results_deprecated(path, config, prefix):
     dsp = ConfusionMatrixDisplay.from_predictions(
         y_test, y_class_multi, ax=axes, cmap=plt.cm.Blues
     )
-    
+
     # display_table.loc[f"Truth Average"] = display_table.mean(axis=0)
     # display_table[f"{groupby[0]} Average"] = display_table.mean(axis=1)
     return dsp, display_report
+
 
 def get_multiclass_results(y_test, y_class_multi, target_levels=None, model_name=None):
 

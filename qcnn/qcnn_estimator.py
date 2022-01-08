@@ -6,11 +6,7 @@ from sklearn.utils.multiclass import type_of_target
 import pennylane as qml
 from embedding import apply_encoding
 import circuit_presets
-from circuit_presets import (
-    CIRCUIT_OPTIONS,
-    POOLING_OPTIONS,
-    get_wire_combos
-)
+from circuit_presets import CIRCUIT_OPTIONS, POOLING_OPTIONS, get_wire_combos
 
 
 class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
@@ -81,10 +77,15 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         self.coef_count_, self.coef_indices_ = self._get_coef_information()
         # Initialize Coefficients TODO use state
         self.coef_ = np.random.randn(self.coef_count_)
+        
+
         coefficients = self.coef_
-        tmp_layer_info = [(layer_name, layer.layer_order) for layer_name, layer in self.layer_dict_.items()]
+        tmp_layer_info = [
+            (layer_name, layer.layer_order)
+            for layer_name, layer in self.layer_dict_.items()
+        ]
         # Gets the layer name with the max order
-        final_layer = max(tmp_layer_info, key=lambda item:item[1])[0]
+        final_layer = max(tmp_layer_info, key=lambda item: item[1])[0]
         if self.layer_dict_[final_layer].wire_pattern == None:
             # The default is 4, this mostly makes it backwards compatible
             self.response_wire_ = 4
@@ -197,7 +198,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
                 circ_name = layer_params[2]
                 wire_pattern = layer_params[3]
                 layer_fn = getattr(circuit_presets, layer_fn_name, None)
-                if not(wire_pattern == None):
+                if not (wire_pattern == None):
                     # If wire pattern is specified then ignore layerfn
                     layer_fn = None
                 circuit_fn = getattr(circuit_presets, circ_name)
@@ -233,8 +234,9 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             circ_name = layer_defintion[0]
             pool_name = layer_defintion[1]
             wire_pattern = layer_defintion[2]
-            wire_combos = get_wire_combos(wire_pattern[0], wire_pattern[1], wire_pattern[2])
-            
+            wire_combos = get_wire_combos(
+                wire_pattern[0], wire_pattern[1], wire_pattern[2]
+            )
 
             layer_dict = {}
             layer_index = 0
@@ -242,11 +244,11 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
                 layer_order = layer_index
                 layer_type, prefix, param_count, circuit_fn_name = (
                     ("convolutional", "c", CIRCUIT_OPTIONS[circ_name], circ_name)
-                    if layer_name[0].upper()=="C"
+                    if layer_name[0].upper() == "C"
                     else ("pooling", "p", POOLING_OPTIONS[pool_name], pool_name)
                 )
                 # layer_fn_name = f"{prefix}_{int(np.ceil((layer_index+1)/2))}"
-                # If wire pattern is empty then use default layer functions            
+                # If wire pattern is empty then use default layer functions
                 layer_dict[layer_name] = Layer(
                     None,
                     getattr(circuit_presets, circuit_fn_name),
@@ -255,7 +257,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
                     layer_order,
                     wire_combo,
                 )
-                layer_index = layer_index +1
+                layer_index = layer_index + 1
             return layer_dict.copy()
         else:
             raise NotImplementedError(
@@ -279,7 +281,9 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
                 for wire_con in layer.wire_pattern:
                     layer.circuit(self.coef_[self.coef_indices_[layer_name]], wire_con)
             else:
-                layer.layer_fn(layer.circuit, self.coef_[self.coef_indices_[layer_name]])
+                layer.layer_fn(
+                    layer.circuit, self.coef_[self.coef_indices_[layer_name]]
+                )
 
     def _get_coef_information(self):
         total_coef_count = 0

@@ -219,6 +219,15 @@ def apply_preprocessing(
         X_train_tfd = pipeline.transform(samples_filtered.X_train)
         X_test_tfd = pipeline.transform(samples_filtered.X_test)
 
+        # # TODO improve / automate, this is temporary for the large image dataset.
+        batch_train_index = np.random.randint(X_train_tfd.shape[0], size=1000)
+        X_train_tfd = X_train_tfd[batch_train_index]
+        y_train_filtered = np.array(y_train_filtered)[batch_train_index]
+
+        batch_test_index = np.random.randint(X_test_tfd.shape[0], size=500)
+        X_test_tfd = X_test_tfd[batch_test_index]
+        y_test_filtered = np.array(y_test_filtered)[batch_test_index]
+
         samples_tfd = Samples(
             X_train_tfd, y_train_filtered, X_test_tfd, y_test_filtered
         )

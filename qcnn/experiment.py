@@ -229,14 +229,19 @@ def run_experiment(config, samples):
                             ]["method"].get(scaler_method)
                         )
                     )
-                    if config["preprocessing"][model_type][embedding_type][
-                        "feature_selection"
-                    ]["method"].get("dont_permute", None):
-                        selection_params = [
-                            config["preprocessing"][model_type][embedding_type][
-                                "feature_selection"
-                            ]["method"].get(selection_method)
-                        ]
+                    if (
+                        config["preprocessing"][model_type][embedding_type][
+                            "feature_selection"
+                        ]["method"]
+                        .get(selection_method, {})
+                        .get("dont_permute", None)
+                    ):
+                        selection_params_val = config["preprocessing"][model_type][
+                            embedding_type
+                        ]["feature_selection"]["method"].get(selection_method)
+                        # TODO improve dont_permute usage
+                        selection_params_val.pop("dont_permute", False)
+                        selection_params = [selection_params_val]
                     else:
                         selection_params = list(
                             ParameterGrid(
@@ -255,13 +260,20 @@ def run_experiment(config, samples):
                             selection_method,
                             selection_param,
                             custom_steps=custom_steps,
-                        )                        
+                        )
                         scaler_param_str = "_".join(
                             [f"{k}={v}" for k, v in scaler_param.items()]
                         )
-                        selection_param_str = "_".join(
-                            [f"{k}={v[0]}" for k, v in selection_param.items()]
-                        )
+                        # TODO if value is too long i.e. list > something then name differently
+                        if sum([len(selection_param[x]) for x in selection_param if isinstance(selection_param[x], list)]) > 1:
+                            selection_param_str = "_".join(
+                                [f"{k}={v[0]}" for k, v in selection_param.items()]
+                            )
+                        else: 
+                            selection_param_str = "_".join(
+                                [f"{k}={v}" for k, v in selection_param.items()]
+                            )
+                       
                         for algorithm in config["model"].get(model_type):
                             # quantum algo like qcnn or some other quantum model
                             if (

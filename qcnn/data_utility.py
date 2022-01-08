@@ -73,8 +73,9 @@ class DataUtility:
                 # Target should not be part of the default set
                 "subset": default_subset if not (col == target) else "target",
                 "force_type": get_force_type(data[col]),
+                "index": index,
             }
-            for col in data.columns
+            for col, index in zip(data.columns, range(len(data.columns)))
         }
 
     def __repr__(self):
@@ -187,7 +188,7 @@ class DataUtility:
         """
 
         col_set = {
-            # Retrun the column
+            # Return the column
             column
             # For every column in the data_utlity object
             for column, column_info in self.column_info.items()
@@ -201,7 +202,7 @@ class DataUtility:
                     else column_info[key] in filter_dict[key]
                     # For every key that is in both dictionaries,
                     # i.e. if a key isn't in the filter dictionary then all values for that key is allowed
-                    for key in set(filter_dict.keys()) & set(column_info.keys())
+                    for key in set(column_info.keys()) & set(filter_dict.keys())
                 ]
             )
         }
@@ -216,16 +217,20 @@ class DataUtility:
             else set()
         )
 
+        return_set = col_set - excluded_set | target_set
+        ordered_list = [col for col in self.column_info.keys() if col in return_set]
+
         if data is None:
-            # TODO raise warning if sample is not None here
-            return col_set - excluded_set | target_set
+            # TODO raise warning if sample is not None here, maybe return the ordered list here
+            return ordered_list
         else:
             sample_idx = (
                 set(data.index) & set(self.row_sample[row_sample_name])
                 if not (row_sample_name is None)
                 else set(data.index)
             )
-            return data[col_set - excluded_set | target_set].loc[sample_idx]
+
+            return data[ordered_list].loc[sample_idx]
 
     @_Decorators.target_exists
     def get_samples(self, data, row_samples=None, subsets=[]):
@@ -263,7 +268,8 @@ class DataUtility:
             Xy_sample = self.get(
                 filter_dict, data=data, row_sample_name=sample_name, include_target=True
             )
-            X_sample = Xy_sample[set(Xy_sample.columns) - {self.target}]
+            ordered_X = [col for col in Xy_sample.columns if not(col in {self.target})]
+            X_sample = Xy_sample[ordered_X]
             y_sample = Xy_sample[self.target]
 
             sample_dfs = sample_dfs + [X_sample, y_sample, Xy_sample]

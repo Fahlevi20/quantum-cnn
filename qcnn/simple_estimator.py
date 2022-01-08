@@ -8,7 +8,6 @@ import pennylane as qml
 from embedding import apply_encoding
 
 
-
 class Simple_Classifier(BaseEstimator, ClassifierMixin):
     """
     TODO get this to work
@@ -60,9 +59,22 @@ class Simple_Classifier(BaseEstimator, ClassifierMixin):
                 f"There is no implementation for optimizer: {self.optimizer}"
             )
 
-         # +1 for bias term
+        # +1 for bias term
         self.coef_count_ = X.shape[1] + 1
         self.coef_ = np.random.randn(self.coef_count_)
+        # self.coef_ = np.array(
+        #     [
+        #         -0.23203849,
+        #         2.6068839,
+        #         0.1298117,
+        #         -0.90825741,
+        #         -0.3185329,
+        #         0.01804955,
+        #         -0.33715778,
+        #         -1.79915837,
+        #         0.39082153,
+        #     ]
+        # )
         coefficients = self.coef_
         # Set paramaters that saves training information
         self.train_history_ = {"Iteration": [], "Cost": []}
@@ -123,7 +135,7 @@ class Simple_Classifier(BaseEstimator, ClassifierMixin):
     def predict_proba(self, X, require_tensor=False):
         X_1 = np.c_[np.ones(X.shape[0]), X]
         Xb = anp.dot(X_1, self.coef_)
-        
+
         # TODO redundant
         if require_tensor:
             y_hat = sigmoid(anp.dot(X_1, self.coef_))
@@ -154,7 +166,8 @@ class Simple_Classifier(BaseEstimator, ClassifierMixin):
 
 
 def sigmoid(x):
-    return 0.5 * (anp.tanh(x / 2.) + 1)
+    return 0.5 * (anp.tanh(x / 2.0) + 1)
+
 
 def cross_entropy(labels, predictions):
     # from sklearn.metrics import log_loss
@@ -167,6 +180,7 @@ def cross_entropy(labels, predictions):
 
     return -1 * loss
 
+
 def square_loss(labels, predictions):
     loss = 0
     for l, p in zip(labels, predictions):
@@ -174,5 +188,6 @@ def square_loss(labels, predictions):
 
     loss = loss / len(labels)
     return loss
+
 
 # %%
