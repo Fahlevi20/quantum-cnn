@@ -1,9 +1,9 @@
 pennylane
 tensorflow
-torch
+# torch
 sklearn
-torchvision 
-torchaudio
+# torchvision 
+# torchaudio
 keras
 
 
