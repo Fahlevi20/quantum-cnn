@@ -552,7 +552,113 @@ def get_multiclass_results(y_test, y_class_multi, target_levels=None, model_name
     return dsp, display_report
 
 
-# confusion_table, confusion_metrics = get_multiclass_results(experiments_path, config, "pca-8-quantum-Angle-U_5")
+def get_experiment_config(path_experiment, exp_id):
+
+    config_filename = "experiment.json" if exp_id >= 108 else "experiment_config.json"
+    config_filename = config_filename if exp_id >= 12 else "experiment.txt"
+    experiment_info = get_file_content(f"{path_experiment}/{exp_id}/{config_filename}")
+    return experiment_info
+
+
+def get_model_names(
+    path_single_experiment, reference_filename="model_configuration.joblib"
+):
+    model_names = (
+        filename.split(f"-{reference_filename}")[0]
+        for filename in os.listdir(path_single_experiment)
+        if f"-{reference_filename}" in filename
+    )
+    return model_names
+
+def gather_results_0_12(exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"):
+    path_single_experiment = f"{path_experiments}/{exp_id}"
+    model_names = get_model_names(path_single_experiment, "confusion-matrix.csv")
+
+    result_data = pd.DataFrame(
+        {
+            "model": [],
+            "circuit": [],
+            "embedding_type": [],
+            "selection_method": [],
+            "selection_param_str": [],
+            "target_levels": [],
+            "accuracy": [],
+            "precision": [],
+            "recall": [],
+            "f1": [],
+            "loss_train_history": [],
+            "loss_test_history": [],
+        }
+    )
+
+    for model_name in model_names:
+        cf_matrix = pd.read_csv(
+            f"{path_single_experiment}/{model_name}-confusion-matrix.csv", index_col=0
+        )
+        if f"{model_name}-loss-history.csv" in os.listdir(path_single_experiment):
+            loss_train_history = pd.read_csv(
+                f"{path_single_experiment}/{model_name}-loss-history.csv"
+            )
+            loss_test_history = pd.read_csv(
+                f"{path_single_experiment}/{model_name}-loss-test-history.csv"
+            )
+            loss_train_history.columns = ["Iteration", "Train_Cost"]
+            loss_test_history.columns = ["Iteration", "Test_Cost"]
+        else:
+            loss_train_history = pd.read_csv(
+                f"{path_single_experiment}/{model_name}-loss-train-history.csv"
+            )
+            loss_test_history = pd.read_csv(
+                f"{path_single_experiment}/{model_name}-loss-test-history.csv"
+            )
+            if loss_train_history.shape[1] > 2:
+                loss_train_history.drop(
+                    loss_train_history.columns[0], inplace=True, axis=1
+                )
+                loss_test_history.drop(
+                    loss_test_history.columns[0], inplace=True, axis=1
+                )
+
+            loss_train_history.columns = ["Iteration", "Train_Cost"]
+            loss_test_history.columns = ["Iteration", "Test_Cost"]
+        (
+            accuracy,
+            precision,
+            recall,
+            f1,
+            stats_text,
+        ) = confusion_matrix_stats(cf_matrix)
+
+        scaler_method = ""
+        selection_method = model_name.split("-")[0]
+        selection_param_str = model_name.split("-")[1]
+        if int(selection_param_str) > 8:
+            if model_name.split('-')[3]=="Compact":
+                embedding_type = f"{model_name.split('-')[2]}_{model_name.split('-')[3]}"
+                circ_name = model_name.split("-")[4]
+            else:
+                embedding_type = f"{model_name.split('-')[2]}_{model_name.split('-')[3]}_{model_name.split('-')[4]}"
+                circ_name = model_name.split("-")[5]
+        else:
+            embedding_type = model_name.split("-")[2]
+            circ_name = model_name.split("-")[3]
+
+        result = {
+            "model": model_name,
+            "circuit": circ_name,
+            "embedding_type": embedding_type,
+            "selection_method": selection_method,
+            "selection_param_str": selection_param_str,
+            "target_levels": "pop_classical",
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "loss_train_history": loss_train_history["Train_Cost"],
+            "loss_test_history": loss_test_history["Test_Cost"],
+        }
+        result_data = result_data.append(result, ignore_index=True)
+    return result_data.copy()
 # %%
 # %%
 

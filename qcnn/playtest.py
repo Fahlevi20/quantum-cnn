@@ -77,7 +77,9 @@ elif pool_pattern == "outside":
 
 # setup
 from math import log2
+
 # %%
+
 
 def get_wire_combos(n_wires, step, pool_filter, wire_to_cut=1):
     wire_combos = {}
@@ -92,9 +94,9 @@ def get_wire_combos(n_wires, step, pool_filter, wire_to_cut=1):
         ]
         if (i == 1) and (len(wire_combos[f"c_{layer_ind+1}"]) > 1):
             wire_combos[f"c_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
-        
+
         wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
-        if len(wire_combos[f"p_{layer_ind+1}"])==0:
+        if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
             wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
         # for next iteration
         cut_wires = [x[wire_to_cut] for x in wire_combos[f"p_{layer_ind+1}"]]
@@ -145,7 +147,15 @@ def get_model_result_list(experiment_config):
     path = f"{experiment_config.get('path')}/{experiment_config.get('ID')}"
     X_test = pd.read_csv(f"{path}/X_test.csv", index_col=0)
     Results = namedtuple(
-        "Results", ["model_name", "y_test_hat", "clf", "model_configuration", "samples_tfd", "pipeline"]
+        "Results",
+        [
+            "model_name",
+            "y_test_hat",
+            "clf",
+            "model_configuration",
+            "samples_tfd",
+            "pipeline",
+        ],
     )
     model_names = [
         filename.split("-model_configuration.joblib")[0]
@@ -171,6 +181,7 @@ def get_model_result_list(experiment_config):
         ]
     return result_list
 
+
 # %%
 exp_id_list = [137]
 result_dict = {}
@@ -184,14 +195,14 @@ all_dict = {}
 data = pd.DataFrame()
 for exp_id, result in result_dict.items():
     tmp_dict = result[0].clf.best_estimator_.train_history_.copy()
-    tmp_dict["exp_id"] = [exp_id] * len(tmp_dict['Iteration'])
+    tmp_dict["exp_id"] = [exp_id] * len(tmp_dict["Iteration"])
     data = pd.concat([data, pd.DataFrame(tmp_dict)])
 # filtered_results = [
 #     result
 #     for result in result_list
 #     if result.model_configuration.additional_structure == 'custom_1'
 # ]
-#tmp_result = [result for result in result_list if result.model_name=="quantum-qcnn-binary-Angle-minmax-max_features=8_n_estimators=50-tree-feature_range=[0, 1.5707963267948966]-['rock', 'reggae']-('U_5', 'psatz1', [8, 1, 'outside'])"]
+# tmp_result = [result for result in result_list if result.model_name=="quantum-qcnn-binary-Angle-minmax-max_features=8_n_estimators=50-tree-feature_range=[0, 1.5707963267948966]-['rock', 'reggae']-('U_5', 'psatz1', [8, 1, 'outside'])"]
 
 
 # %%
@@ -200,9 +211,10 @@ for exp_id, result in result_dict.items():
 # %%
 import matplotlib.pyplot as plt
 import seaborn as sns
-figsize=(30, 10)
+
+figsize = (30, 10)
 plot_data = data.pivot("Iteration", "exp_id", "Cost")
-#data = a.clf.best_estimator_.train_history_
+# data = a.clf.best_estimator_.train_history_
 with sns.axes_style("whitegrid"):
     fig, axes = plt.subplots(1, 1, figsize=figsize, sharey=True)
     sns.lineplot(
@@ -280,7 +292,7 @@ import numpy as np
 
 X, y = load_iris(return_X_y=True)
 
-index_01 = np.where(y!=2)
+index_01 = np.where(y != 2)
 
 X = X[index_01]
 y = y[index_01]
@@ -292,4 +304,190 @@ clf.predict_proba(X[:2, :])
 
 
 clf.score(X, y)
+# %%
+"""
+Gather and display  data encoding circuit results...
+First result
+
+exp:0=combinations encoding + all circuits + 1 genre pair choice of embedding
+exp:1 - 8 =scaling, getting to minmax range
+exp:4 scaling circuit, show angle does good
+exp:9 all circuits hiphop-reggae, minmax(0, np.pi)
+exp:10 all circuits disco-jazz, minmax(0, np.pi)
+exp:11 all circuits rock-metal, minmax(0, np.pi)
+exp:12-23 introducing config, testing and closer to 20 is minmaxscaling tests
+exp:23=all genres, fixed U_5, Angle and scaling
+exp:24-53=a lot of testing, introducing havlicek and different scaling
+exp:53=all target pairs, default rest 60 iterations
+exp:54=all target pairs, default rest 100 iterations
+exp:90,91,92 encodings vary depth   20211127
+exp:93=encodings vary scale         20211127
+exp:94=1000 encodings iterations    20211127
+exp:98,99=encodings vary scale      20211127
+exp:97,100=ova encodings            20211127
+exp:101=encodings 1000 iterations, vary circuits, 2 genres,
+exp:102=ova
+exp:103=ova
+exp:104=pca encodings genres, circuits      20211102
+exp:105=tree encodings genres, circuits     20211102
+preprocessing experiment                    20211102
+exp:107=image mnist data large experiment
+exp:108=large classical
+exp:109=ova
+exp:110=ovo
+exp:111=binary classical logreg
+exp:112=ova
+exp:114=classical, logreg svm all genres
+exp:116=classical ovo
+exp:117=classical ova
+exp:118=quant+classical, binary structure
+exp:119=quantum structure, one layer a time
+exp:122=quantum large structure experiment      20211211
+exp:124=[8,1,outside] all genre                 20211211
+exp:[136,135,134,133,132] quantum fixed features correctly  20211211
+exp:[139,140,141,142,143] classical fixed features correctly  20211211
+
+exp:139=simple classical self built
+"""
+
+
+from reporting_functions import (
+    get_file_content,
+    confusion_matrix_stats,
+    get_result_table_target_pairs,
+    get_result_table,
+    plot_loss
+)
+
+
+def get_experiment_config(path_experiment, exp_id):
+
+    config_filename = "experiment.json" if exp_id >= 108 else "experiment_config.json"
+    config_filename = config_filename if exp_id >= 12 else "experiment.txt"
+    experiment_info = get_file_content(f"{path_experiment}/{exp_id}/{config_filename}")
+    return experiment_info
+
+
+def get_model_names(
+    path_single_experiment, reference_filename="model_configuration.joblib"
+):
+    model_names = (
+        filename.split(f"-{reference_filename}")[0]
+        for filename in os.listdir(path_single_experiment)
+        if f"-{reference_filename}" in filename
+    )
+    return model_names
+
+
+# %%
+path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
+
+# %%
+from collections import namedtuple
+import pandas as pd
+from IPython.display import display
+
+def gather_results_0_12(exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"):
+    path_single_experiment = f"{path_experiments}/{exp_id}"
+    model_names = get_model_names(path_single_experiment, "confusion-matrix.csv")
+
+    result_data = pd.DataFrame(
+        {
+            "model": [],
+            "circuit": [],
+            "embedding_type": [],
+            "selection_method": [],
+            "selection_param_str": [],
+            "target_levels": [],
+            "accuracy": [],
+            "precision": [],
+            "recall": [],
+            "f1": [],
+            "loss_train_history": [],
+            "loss_test_history": [],
+        }
+    )
+
+    for model_name in model_names:
+        cf_matrix = pd.read_csv(
+            f"{path_single_experiment}/{model_name}-confusion-matrix.csv", index_col=0
+        )
+        if f"{model_name}-loss-history.csv" in os.listdir(path_single_experiment):
+            loss_train_history = pd.read_csv(
+                f"{path_single_experiment}/{model_name}-loss-history.csv"
+            )
+            loss_test_history = pd.read_csv(
+                f"{path_single_experiment}/{model_name}-loss-test-history.csv"
+            )
+            loss_train_history.columns = ["Iteration", "Train_Cost"]
+            loss_test_history.columns = ["Iteration", "Test_Cost"]
+        else:
+            loss_train_history = pd.read_csv(
+                f"{path_single_experiment}/{model_name}-loss-train-history.csv"
+            )
+            loss_test_history = pd.read_csv(
+                f"{path_single_experiment}/{model_name}-loss-test-history.csv"
+            )
+            if loss_train_history.shape[1] > 2:
+                loss_train_history.drop(
+                    loss_train_history.columns[0], inplace=True, axis=1
+                )
+                loss_test_history.drop(
+                    loss_test_history.columns[0], inplace=True, axis=1
+                )
+
+            loss_train_history.columns = ["Iteration", "Train_Cost"]
+            loss_test_history.columns = ["Iteration", "Test_Cost"]
+        (
+            accuracy,
+            precision,
+            recall,
+            f1,
+            stats_text,
+        ) = confusion_matrix_stats(cf_matrix)
+
+        scaler_method = ""
+        selection_method = model_name.split("-")[0]
+        selection_param_str = model_name.split("-")[1]
+        if int(selection_param_str) > 8:
+            if model_name.split('-')[3]=="Compact":
+                embedding_type = f"{model_name.split('-')[2]}_{model_name.split('-')[3]}"
+                circ_name = model_name.split("-")[4]
+            else:
+                embedding_type = f"{model_name.split('-')[2]}_{model_name.split('-')[3]}_{model_name.split('-')[4]}"
+                circ_name = model_name.split("-")[5]
+        else:
+            embedding_type = model_name.split("-")[2]
+            circ_name = model_name.split("-")[3]
+
+        result = {
+            "model": model_name,
+            "circuit": circ_name,
+            "embedding_type": embedding_type,
+            "selection_method": selection_method,
+            "selection_param_str": selection_param_str,
+            "target_levels": "pop_classical",
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "loss_train_history": loss_train_history["Train_Cost"],
+            "loss_test_history": loss_test_history["Test_Cost"],
+        }
+        result_data = result_data.append(result, ignore_index=True)
+    return result_data.copy()
+
+gather_results_0_12(0)
+# %%
+display(get_experiment_config(path_experiments, exp_id))
+display(get_result_table_target_pairs(result_data, "circuit", "target_levels", "accuracy"))
+display(get_result_table(
+    result_data,
+    ["circuit", "embedding_type"],
+    "accuracy",
+))
+display(plot_loss(result_data, ["embedding_type", "circuit"], figsize=(28, 5)))
+# %%
+#display(plot_loss(result_data, ["embedding_type", "circuit"], figsize=(28, 5)))
+
 # %%
