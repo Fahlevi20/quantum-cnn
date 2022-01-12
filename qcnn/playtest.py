@@ -477,16 +477,16 @@ def gather_results_0_12(exp_id, path_experiments=f"/home/matt/dev/projects/quant
         result_data = result_data.append(result, ignore_index=True)
     return result_data.copy()
 
-gather_results_0_12(0)
+result_data= gather_results_0_12(9)
 # %%
-display(get_experiment_config(path_experiments, exp_id))
-display(get_result_table_target_pairs(result_data, "circuit", "target_levels", "accuracy"))
-display(get_result_table(
-    result_data,
-    ["circuit", "embedding_type"],
-    "accuracy",
-))
-display(plot_loss(result_data, ["embedding_type", "circuit"], figsize=(28, 5)))
+# display(get_experiment_config(path_experiments, exp_id))
+# display(get_result_table_target_pairs(result_data, "circuit", "target_levels", "accuracy"))
+# display(get_result_table(
+#     result_data,
+#     ["circuit", "embedding_type"],
+#     "accuracy",
+# ))
+display(plot_loss(result_data, ["embedding_type", "circuit"], group_filter=["U_5"], figsize=(28, 5)))
 # %%
 #display(plot_loss(result_data, ["embedding_type", "circuit"], figsize=(28, 5)))
 
