@@ -527,7 +527,7 @@ tmp_result_table = get_result_table(
 )
 
 # %%
-)
+
 
 
 
@@ -539,8 +539,12 @@ data_1 = result_data[result_data["target_pair_str"] == "classical_pop"].copy()
 plot_data_0 = get_line_plot_data(data_0, groupby, metric)
 plot_data_1 = get_line_plot_data(data_1, groupby, metric)
 # sns.set(font_scale=1.2)
+import matplotlib.ticker as ticker
 with sns.axes_style("whitegrid"):
-    fig, axes = plt.subplots(1, 2, figsize=(6, 6), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(14,7), sharey=True)
+    # axes[0].yaxis.set_major_locator(ticker.MultipleLocator(0.1))
+    # axes[1].yaxis.set_major_locator(ticker.MultipleLocator(0.1))
+    # axes[1].set_aspect('equal', adjustable='box')
     sns.lineplot(
         ax=axes[0],
         data=pd.melt(
@@ -571,7 +575,7 @@ with sns.axes_style("whitegrid"):
         dashes=False,
         marker="o",
     )
-
+# plt.gca().set_aspect("equal")
 
 # %%
 with sns.axes_style("whitegrid"):
