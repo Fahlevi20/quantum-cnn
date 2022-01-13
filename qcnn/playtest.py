@@ -1,6 +1,7 @@
 # %%
 import itertools as it
 from math import log2
+import re
 
 target_levels = [
     "classical",
@@ -356,7 +357,9 @@ from reporting_functions import (
     confusion_matrix_stats,
     get_result_table_target_pairs,
     get_result_table,
-    plot_loss
+    plot_loss,
+    check_filter_on_list,
+    gather_results_0_12,
 )
 
 
@@ -379,115 +382,228 @@ def get_model_names(
     return model_names
 
 
-# %%
-path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
-
-# %%
-from collections import namedtuple
-import pandas as pd
-from IPython.display import display
-
-def gather_results_0_12(exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"):
+def gather_results_118_135(
+    exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"
+):
     path_single_experiment = f"{path_experiments}/{exp_id}"
-    model_names = get_model_names(path_single_experiment, "confusion-matrix.csv")
+    model_names = get_model_names(path_single_experiment)
+
+    Results = namedtuple(
+        "Results",
+        [
+            "model_name",
+            "y_test_hat",
+            "clf",
+            "model_configuration",
+            "samples_tfd",
+            "pipeline",
+        ],
+    )
+    result_list = []
+    for model_name in model_names:
+        y_test_hat = pd.read_csv(
+            f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0
+        )
+        clf = load(f"{path_single_experiment}/{model_name}-clf_results.joblib")
+        model_configuration = load(
+            f"{path_single_experiment}/{model_name}-model_configuration.joblib"
+        )
+        samples_tfd = load(f"{path_single_experiment}/{model_name}-samples_tfd.joblib")
+        pipeline = load(f"{path_single_experiment}/{model_name}-pipeline.joblib")
+        result_list = result_list + [
+            Results(
+                model_name,
+                y_test_hat=y_test_hat,
+                clf=clf,
+                model_configuration=model_configuration,
+                samples_tfd=samples_tfd,
+                pipeline=pipeline,
+            )
+        ]
 
     result_data = pd.DataFrame(
         {
-            "model": [],
-            "circuit": [],
+            "model_name": [],
+            "model_type": [],
+            "algorithm": [],
+            "classification_type": [],
             "embedding_type": [],
+            "scaler_method": [],
+            "scaler_param_str": [],
             "selection_method": [],
             "selection_param_str": [],
-            "target_levels": [],
+            "target_pair": [],
+            "additional_structure": [],
+            "target_pair_str": [],
+            "mean_test_score": [],
+            "std_test_score": [],
+            "params": [],
             "accuracy": [],
             "precision": [],
             "recall": [],
             "f1": [],
             "loss_train_history": [],
-            "loss_test_history": [],
         }
     )
+    for result in result_list:
+        y_test_hat = result.y_test_hat
+        clf = result.clf
+        model_configuration = result.model_configuration
+        samples_tfd = result.samples_tfd
+        model_name = result.model_name
 
-    for model_name in model_names:
-        cf_matrix = pd.read_csv(
-            f"{path_single_experiment}/{model_name}-confusion-matrix.csv", index_col=0
+        precision, recall, fscore, support = precision_recall_fscore_support(
+            samples_tfd.y_test, y_test_hat, average="binary"  # TODO multiclass
         )
-        if f"{model_name}-loss-history.csv" in os.listdir(path_single_experiment):
-            loss_train_history = pd.read_csv(
-                f"{path_single_experiment}/{model_name}-loss-history.csv"
-            )
-            loss_test_history = pd.read_csv(
-                f"{path_single_experiment}/{model_name}-loss-test-history.csv"
-            )
-            loss_train_history.columns = ["Iteration", "Train_Cost"]
-            loss_test_history.columns = ["Iteration", "Test_Cost"]
-        else:
-            loss_train_history = pd.read_csv(
-                f"{path_single_experiment}/{model_name}-loss-train-history.csv"
-            )
-            loss_test_history = pd.read_csv(
-                f"{path_single_experiment}/{model_name}-loss-test-history.csv"
-            )
-            if loss_train_history.shape[1] > 2:
-                loss_train_history.drop(
-                    loss_train_history.columns[0], inplace=True, axis=1
-                )
-                loss_test_history.drop(
-                    loss_test_history.columns[0], inplace=True, axis=1
-                )
+        accuracy = accuracy_score(samples_tfd.y_test, y_test_hat)
+        tmp_result = model_configuration._asdict()
+        tmp_result["model_name"] = model_name
 
-            loss_train_history.columns = ["Iteration", "Train_Cost"]
-            loss_test_history.columns = ["Iteration", "Test_Cost"]
-        (
-            accuracy,
-            precision,
-            recall,
-            f1,
-            stats_text,
-        ) = confusion_matrix_stats(cf_matrix)
+        tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
+        tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][
+            clf.best_index_
+        ]
+        tmp_result["std_test_score"] = clf.cv_results_["std_test_score"][
+            clf.best_index_
+        ]
+        tmp_result["params"] = clf.cv_results_["params"][clf.best_index_]
 
-        scaler_method = ""
-        selection_method = model_name.split("-")[0]
-        selection_param_str = model_name.split("-")[1]
-        if int(selection_param_str) > 8:
-            if model_name.split('-')[3]=="Compact":
-                embedding_type = f"{model_name.split('-')[2]}_{model_name.split('-')[3]}"
-                circ_name = model_name.split("-")[4]
-            else:
-                embedding_type = f"{model_name.split('-')[2]}_{model_name.split('-')[3]}_{model_name.split('-')[4]}"
-                circ_name = model_name.split("-")[5]
-        else:
-            embedding_type = model_name.split("-")[2]
-            circ_name = model_name.split("-")[3]
+        tmp_result["accuracy"] = accuracy
+        tmp_result["precision"] = precision
+        tmp_result["recall"] = recall
+        tmp_result["f1"] = fscore
+        tmp_result["loss_train_history"] = None  # set for quantum
+        result_data = result_data.append(tmp_result, ignore_index=True)
 
-        result = {
-            "model": model_name,
-            "circuit": circ_name,
-            "embedding_type": embedding_type,
-            "selection_method": selection_method,
-            "selection_param_str": selection_param_str,
-            "target_levels": "pop_classical",
-            "accuracy": accuracy,
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "loss_train_history": loss_train_history["Train_Cost"],
-            "loss_test_history": loss_test_history["Test_Cost"],
-        }
-        result_data = result_data.append(result, ignore_index=True)
-    return result_data.copy()
+    return result_data
 
-result_data= gather_results_0_12(9)
-# %%
-# display(get_experiment_config(path_experiments, exp_id))
-# display(get_result_table_target_pairs(result_data, "circuit", "target_levels", "accuracy"))
-# display(get_result_table(
-#     result_data,
-#     ["circuit", "embedding_type"],
-#     "accuracy",
-# ))
-display(plot_loss(result_data, ["embedding_type", "circuit"], group_filter=["U_5"], figsize=(28, 5)))
-# %%
-#display(plot_loss(result_data, ["embedding_type", "circuit"], figsize=(28, 5)))
+
+def get_line_plot_data(data, groupby, metric):
+    grouped_data = data.groupby(groupby)[metric].max()
+    display(grouped_data)
+    grouped_data_unstack = grouped_data.copy().unstack(level=-1)
+    grouped_data_unstack[grouped_data_unstack.index.name] = grouped_data_unstack.index
+    return grouped_data_unstack.copy()
+
 
 # %%
+from collections import namedtuple
+import pandas as pd
+from IPython.display import display
+from sklearn.metrics import precision_recall_fscore_support, accuracy_score
+from joblib import dump, load
+import numpy as np
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
+# %%
+exp_id = 10
+result_data = gather_results_0_12(exp_id, path_experiments=path_experiments)
+display(plot_loss(result_data, ["embedding_type", "circuit"], figsize=(28, 5)))
+
+# %%
+"""Experiment 119
+"""
+path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
+exp_id = 119
+result_data = gather_results_118_135(exp_id)
+
+display(get_experiment_config(path_experiments, exp_id))
+display(
+    get_result_table(
+        result_data,
+        ["algorithm", "additional_structure", "selection_method", "target_pair_str"],
+        "accuracy",
+    )
+)
+# display(plot_loss(result_data, ["embedding_type", "circuit"], group_filter=["U_5"], figsize=(28, 5)))
+# %%
+tmp_result_table = get_result_table(
+    result_data,
+    ["algorithm", "additional_structure", "selection_method", "target_pair_str"],
+    "accuracy",
+)
+
+# %%
+)
+
+
+
+
+groupby = ["additional_structure", "selection_method"]
+metric = "accuracy"
+data_0 = result_data[result_data["target_pair_str"] == "rock_reggae"].copy()
+data_1 = result_data[result_data["target_pair_str"] == "classical_pop"].copy()
+plot_data_0 = get_line_plot_data(data_0, groupby, metric)
+plot_data_1 = get_line_plot_data(data_1, groupby, metric)
+# sns.set(font_scale=1.2)
+with sns.axes_style("whitegrid"):
+    fig, axes = plt.subplots(1, 2, figsize=(6, 6), sharey=True)
+    sns.lineplot(
+        ax=axes[0],
+        data=pd.melt(
+            plot_data_0,
+            "additional_structure",
+            value_name="Accuracy",
+            var_name="selection_method",
+        ),
+        x="additional_structure",
+        y="Accuracy",
+        hue="selection_method",
+        markers=True,
+        dashes=False,
+        marker="o",
+    )
+    sns.lineplot(
+        ax=axes[1],
+        data=pd.melt(
+            plot_data_1,
+            "additional_structure",
+            value_name="Accuracy",
+            var_name="selection_method",
+        ),
+        x="additional_structure",
+        y="Accuracy",
+        hue="selection_method",
+        markers=True,
+        dashes=False,
+        marker="o",
+    )
+
+
+# %%
+with sns.axes_style("whitegrid"):
+    fig, axes = plt.subplots(1, 2, figsize=figsize, sharey=True)
+    sns.lineplot(
+        ax=axes[0],
+        data=pd.melt(
+            plot_data_train,
+            "Iteration",
+            value_name="MSE Cost",
+            var_name=groupby[0],
+        ),
+        x="Iteration",
+        y="MSE Cost",
+        hue=groupby[0],
+        markers=True,
+        dashes=False,
+    )
+    axes[0].set_title(f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration")
+
+    sns.lineplot(
+        ax=axes[1],
+        data=pd.melt(
+            plot_data_test,
+            "Iteration",
+            value_name="MSE Cost",
+            var_name=groupby[0],
+        ),
+        x="Iteration",
+        y="MSE Cost",
+        hue=groupby[0],
+        markers=True,
+        dashes=False,
+    )
+    axes[1].set_title(f"{col}-{'-'.join(group_filter)} Test Cost Per Iteration")
