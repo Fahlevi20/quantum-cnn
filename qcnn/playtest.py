@@ -444,7 +444,7 @@ from math import log2
 
 n_wires = 8
 step = 1
-pool_pattern = "outside"
+pool_pattern = "inside"
 wire_to_cut = 0
 
 if pool_pattern == "left":
@@ -500,14 +500,14 @@ for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, 
 display(wire_combos)
 
 
-# %%
+
 import numpy as np
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 from qiskit import BasicAer, execute
 from qiskit.quantum_info import Pauli, state_fidelity, process_fidelity
 from qiskit.circuit import Gate
 
-# %%
+
 
 n_qbits = 8
 qr = QuantumRegister(n_qbits, "q")
@@ -540,8 +540,10 @@ q_circuit.draw(
     justify="none",
     style={"displaycolor": disp_color},
 )
-# %%
+
 # graph
+# TODO find way to show qbit is removed in make node small or something
+# https://towardsdatascience.com/customizing-networkx-graphs-f80b4e69bedf
 import networkx as nx
 import matplotlib.pyplot as plt
 
@@ -553,18 +555,17 @@ conv_color = "0096ff"
 pool_color = "ff7e79"
 
 
-
 # labels = nx.draw_networkx_labels(graph, pos=pos)
 # nodes=nx.draw_networkx_nodes(graph,pos=pos, node_color="#ffffff")
+node_sizes = [1000 for ind in range(n_qbits)]
 for layer in wire_combos.keys():
     fig, ax = plt.subplots(figsize=(7, 7))
     graph = nx.Graph()
-    graph.add_nodes_from(range(8))
+    graph.add_nodes_from(range(n_qbits))
     graph.add_edges_from(wire_combos[layer])
 
-
-    theta_0 = 2/n_qbits
-    theta_step = 1/n_qbits
+    theta_0 = 2 / n_qbits
+    theta_step = 1 / n_qbits
     pos = {
         ind: np.array(
             [
@@ -576,16 +577,24 @@ for layer in wire_combos.keys():
     }
     if layer.split("_")[0].upper() == "P":
         node_color = "#ff7e79"
+        cut_wires = [x[wire_to_cut] for x in wire_combos[layer]]
+        node_sizes = [
+            100 if (ind in cut_wires) else node_size
+            for ind, node_size in zip(range(n_qbits), node_sizes)
+        ]
     else:
         node_color = "#0096ff"
+
+    # cut_wires = [x[wire_to_cut] for x in wire_combos[layer]]
+    # node_sizes = [100 if (ind in cut_wires) else 1000 for ind in range(n_qbits)]
     nx.draw(
         graph,
         pos,
         with_labels=True,
-        node_size=1000,
+        node_size=node_sizes,
         edge_color="#000000",
         edgecolors="#000000",
-        node_color=node_color
+        node_color=node_color,
     )
 
 # %%
