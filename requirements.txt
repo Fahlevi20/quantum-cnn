@@ -5,6 +5,8 @@ sklearn
 # torchvision 
 # torchaudio
 keras
+qiskit
+pylatexenc
 
 
 # music

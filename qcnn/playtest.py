@@ -360,6 +360,9 @@ from reporting_functions import (
     plot_loss,
     check_filter_on_list,
     gather_results_0_12,
+    get_line_plot_data,
+    plot_119_accuracy_per_structure,
+    gather_results_118_135,
 )
 
 
@@ -382,110 +385,6 @@ def get_model_names(
     return model_names
 
 
-def gather_results_118_135(
-    exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"
-):
-    path_single_experiment = f"{path_experiments}/{exp_id}"
-    model_names = get_model_names(path_single_experiment)
-
-    Results = namedtuple(
-        "Results",
-        [
-            "model_name",
-            "y_test_hat",
-            "clf",
-            "model_configuration",
-            "samples_tfd",
-            "pipeline",
-        ],
-    )
-    result_list = []
-    for model_name in model_names:
-        y_test_hat = pd.read_csv(
-            f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0
-        )
-        clf = load(f"{path_single_experiment}/{model_name}-clf_results.joblib")
-        model_configuration = load(
-            f"{path_single_experiment}/{model_name}-model_configuration.joblib"
-        )
-        samples_tfd = load(f"{path_single_experiment}/{model_name}-samples_tfd.joblib")
-        pipeline = load(f"{path_single_experiment}/{model_name}-pipeline.joblib")
-        result_list = result_list + [
-            Results(
-                model_name,
-                y_test_hat=y_test_hat,
-                clf=clf,
-                model_configuration=model_configuration,
-                samples_tfd=samples_tfd,
-                pipeline=pipeline,
-            )
-        ]
-
-    result_data = pd.DataFrame(
-        {
-            "model_name": [],
-            "model_type": [],
-            "algorithm": [],
-            "classification_type": [],
-            "embedding_type": [],
-            "scaler_method": [],
-            "scaler_param_str": [],
-            "selection_method": [],
-            "selection_param_str": [],
-            "target_pair": [],
-            "additional_structure": [],
-            "target_pair_str": [],
-            "mean_test_score": [],
-            "std_test_score": [],
-            "params": [],
-            "accuracy": [],
-            "precision": [],
-            "recall": [],
-            "f1": [],
-            "loss_train_history": [],
-        }
-    )
-    for result in result_list:
-        y_test_hat = result.y_test_hat
-        clf = result.clf
-        model_configuration = result.model_configuration
-        samples_tfd = result.samples_tfd
-        model_name = result.model_name
-
-        precision, recall, fscore, support = precision_recall_fscore_support(
-            samples_tfd.y_test, y_test_hat, average="binary"  # TODO multiclass
-        )
-        accuracy = accuracy_score(samples_tfd.y_test, y_test_hat)
-        tmp_result = model_configuration._asdict()
-        tmp_result["model_name"] = model_name
-
-        tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
-        tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][
-            clf.best_index_
-        ]
-        tmp_result["std_test_score"] = clf.cv_results_["std_test_score"][
-            clf.best_index_
-        ]
-        tmp_result["params"] = clf.cv_results_["params"][clf.best_index_]
-
-        tmp_result["accuracy"] = accuracy
-        tmp_result["precision"] = precision
-        tmp_result["recall"] = recall
-        tmp_result["f1"] = fscore
-        tmp_result["loss_train_history"] = None  # set for quantum
-        result_data = result_data.append(tmp_result, ignore_index=True)
-
-    return result_data
-
-
-def get_line_plot_data(data, groupby, metric):
-    grouped_data = data.groupby(groupby)[metric].max()
-    display(grouped_data)
-    grouped_data_unstack = grouped_data.copy().unstack(level=-1)
-    grouped_data_unstack[grouped_data_unstack.index.name] = grouped_data_unstack.index
-    return grouped_data_unstack.copy()
-
-
 # %%
 from collections import namedtuple
 import pandas as pd
@@ -493,6 +392,7 @@ from IPython.display import display
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 from joblib import dump, load
 import numpy as np
+import itertools as it
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -528,86 +428,161 @@ tmp_result_table = get_result_table(
 
 # %%
 
-
-
-
-
-groupby = ["additional_structure", "selection_method"]
-metric = "accuracy"
+# plot_119_accuracy_per_structure(result_data, figsize)
 data_0 = result_data[result_data["target_pair_str"] == "rock_reggae"].copy()
 data_1 = result_data[result_data["target_pair_str"] == "classical_pop"].copy()
 plot_data_0 = get_line_plot_data(data_0, groupby, metric)
 plot_data_1 = get_line_plot_data(data_1, groupby, metric)
-# sns.set(font_scale=1.2)
-import matplotlib.ticker as ticker
-with sns.axes_style("whitegrid"):
-    fig, axes = plt.subplots(1, 2, figsize=(14,7), sharey=True)
-    # axes[0].yaxis.set_major_locator(ticker.MultipleLocator(0.1))
-    # axes[1].yaxis.set_major_locator(ticker.MultipleLocator(0.1))
-    # axes[1].set_aspect('equal', adjustable='box')
-    sns.lineplot(
-        ax=axes[0],
-        data=pd.melt(
-            plot_data_0,
-            "additional_structure",
-            value_name="Accuracy",
-            var_name="selection_method",
-        ),
-        x="additional_structure",
-        y="Accuracy",
-        hue="selection_method",
-        markers=True,
-        dashes=False,
-        marker="o",
-    )
-    sns.lineplot(
-        ax=axes[1],
-        data=pd.melt(
-            plot_data_1,
-            "additional_structure",
-            value_name="Accuracy",
-            var_name="selection_method",
-        ),
-        x="additional_structure",
-        y="Accuracy",
-        hue="selection_method",
-        markers=True,
-        dashes=False,
-        marker="o",
-    )
-# plt.gca().set_aspect("equal")
+plot_data_0[{"pca", "tree"}]
+plot_data_1[{"pca", "tree"}]
+# grouped_data = result_data.groupby(["additional_structure", "selection_method"])["accuracy"].max()
+# grouped_data_unstack = grouped_data.copy().unstack(level=-1)
+# grouped_data_unstack[grouped_data_unstack.index.name] = grouped_data_unstack.index
 
 # %%
-with sns.axes_style("whitegrid"):
-    fig, axes = plt.subplots(1, 2, figsize=figsize, sharey=True)
-    sns.lineplot(
-        ax=axes[0],
-        data=pd.melt(
-            plot_data_train,
-            "Iteration",
-            value_name="MSE Cost",
-            var_name=groupby[0],
-        ),
-        x="Iteration",
-        y="MSE Cost",
-        hue=groupby[0],
-        markers=True,
-        dashes=False,
-    )
-    axes[0].set_title(f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration")
+from math import log2
 
-    sns.lineplot(
-        ax=axes[1],
-        data=pd.melt(
-            plot_data_test,
-            "Iteration",
-            value_name="MSE Cost",
-            var_name=groupby[0],
-        ),
-        x="Iteration",
-        y="MSE Cost",
-        hue=groupby[0],
-        markers=True,
-        dashes=False,
+n_wires = 8
+step = 1
+pool_pattern = "eo_even"
+wire_to_cut = 0
+
+if pool_pattern == "left":
+    # 0 1 2 3 4 5 6 7
+    # x x x x
+    pool_filter = lambda arr: arr[0 : len(arr) // 2 : 1]  # Left
+elif pool_pattern == "right":
+    # 0 1 2 3 4 5 6 7
+    #         x x x x
+    pool_filter = lambda arr: arr[len(arr) : len(arr) // 2 - 1 : -1]  # Right
+elif pool_pattern == "eo_even":
+    # 0 1 2 3 4 5 6 7
+    # x   x   x   x
+    pool_filter = lambda arr: arr[0::2]  # eo even
+elif pool_pattern == "eo_odd":
+    # 0 1 2 3 4 5 6 7
+    #   x   x   x   x
+    pool_filter = lambda arr: arr[1::2]  # eo odd
+elif pool_pattern == "inside":
+    # 0 1 2 3 4 5 6 7
+    #     x x x x
+    pool_filter = lambda arr: arr[
+        len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1
+    ]  # inside
+elif pool_pattern == "outside":
+    # 0 1 2 3 4 5 6 7
+    # x x         x x
+    pool_filter = lambda arr: [
+        item
+        for item in arr
+        if not (
+            item
+            in arr[len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1]
+        )
+    ]  # outside
+wire_combos = {}
+wires = range(n_wires)
+for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, -1)):
+    conv_size = 2 ** i
+    circle_n = lambda x: x % conv_size
+    wire_combos[f"c_{layer_ind+1}"] = [
+        (wires[x], wires[circle_n(x + step)]) for x in range(conv_size)
+    ]
+    if (i == 1) and (len(wire_combos[f"c_{layer_ind+1}"]) > 1):
+        wire_combos[f"c_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
+
+    wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
+    if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
+        wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
+    # for next iteration
+    cut_wires = [x[wire_to_cut] for x in wire_combos[f"p_{layer_ind+1}"]]
+    wires = [wire for wire in wires if not (wire in cut_wires)]
+display(wire_combos)
+
+# %%
+from qiskit import QuantumCircuit
+from qiskit.circuit import Gate
+
+qc = QuantumCircuit(1, 2)
+qc.append(Gate(name=r"X_t", num_qubits=2, params=[]), [0])
+qc.measure(
+    [
+        0,
+    ],
+    [
+        0,
+    ],
+)
+qc.draw(output="mpl", interactive=False, filename="test.png")
+# %%
+import numpy as np
+from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
+from qiskit import BasicAer, execute
+from qiskit.quantum_info import Pauli, state_fidelity, process_fidelity
+
+num_qubits = 2
+num_bits = 2
+bell = QuantumCircuit(2)
+bell.append(Gate(name=r"X_t", num_qubits=2, params=[]), [0])
+# bell.h(0)
+# bell.cx(0, 1)
+
+bell.draw(output="mpl")
+
+# %%
+from qiskit.circuit import Gate
+
+my_gate = Gate(name="my_gate", num_qubits=2, params=[])
+
+qr = QuantumRegister(3, "q")
+circ = QuantumCircuit(qr)
+circ.append(my_gate, [qr[0], qr[1]])
+circ.append(my_gate, [qr[1], qr[2]])
+
+circ.draw(output="mpl")
+
+# %%
+
+n_qbits = 8
+qr = QuantumRegister(n_qbits, "q")
+q_circuit = QuantumCircuit(qr)
+
+for layer, wires in wire_combos.items():
+    for wire_connection in wires:
+        q_circuit.append(
+            Gate(name=layer, num_qubits=2, params=[]),
+            (qr[wire_connection[0]], qr[wire_connection[1]]),
+        )
+        q_circuit.barrier()
+
+q_circuit.draw(output="mpl", plot_barriers=False, justify='none')
+
+# %%
+qr = QuantumRegister(n_qbits, "q")
+q_circuit = QuantumCircuit(qr)
+
+
+n_qbits = 8
+qr = QuantumRegister(n_qbits, "q")
+q_circuit = QuantumCircuit(qr)
+
+layer = list(wire_combos.keys())[0]
+wires = wire_combos[layer]
+for wire_connection in wires:
+    q_circuit.append(
+        Gate(name=layer, num_qubits=2, params=[]),
+        (qr[wire_connection[0]], qr[wire_connection[1]]),
     )
-    axes[1].set_title(f"{col}-{'-'.join(group_filter)} Test Cost Per Iteration")
+    i += 1
+q_circuit.draw(output="mpl")
+# %%
+layer = list(wire_combos.keys())[1]
+wires = wire_combos[layer]
+for wire_connection in wires:
+    q_circuit.append(
+        Gate(name=layer, num_qubits=2, params=[]),
+        (qr[wire_connection[0]], qr[wire_connection[1]]),
+    )
+    i += 1
+q_circuit.draw(output="mpl", plot_barriers=False)
+# %%
