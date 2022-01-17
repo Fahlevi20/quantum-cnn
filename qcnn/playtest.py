@@ -505,9 +505,6 @@ import numpy as np
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 from qiskit import BasicAer, execute
 from qiskit.quantum_info import Pauli, state_fidelity, process_fidelity
-
-
-# %%
 from qiskit.circuit import Gate
 
 # %%
@@ -549,36 +546,47 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 n_qbits = 8
-fig, ax = plt.subplots(figsize=(7, 7))
-graph = nx.Graph()
 
-layer = "c_1"
 
-graph.add_nodes_from(range(8))
-graph.add_edges_from(wire_combos[layer])
+layer = "p_1"
+conv_color = "0096ff"
+pool_color = "ff7e79"
 
-theta_0 = 2/n_qbits
-theta_step = 1/n_qbits
-pos = {
-    ind: np.array(
-        [
-            np.cos(2 * np.pi * (theta_0 + ind * theta_step)),
-            np.sin(2 * np.pi * (theta_0 + ind * theta_step)),
-        ]
-    )
-    for ind in range(n_qbits)
-}
-nx.draw_networkx_nodes
+
+
 # labels = nx.draw_networkx_labels(graph, pos=pos)
 # nodes=nx.draw_networkx_nodes(graph,pos=pos, node_color="#ffffff")
-nx.draw(
-    graph,
-    pos,
-    with_labels=True,
-    node_size=1000,
-    edge_color="#A000A3",
-    edgecolors="#000000",
-)
+for layer in wire_combos.keys():
+    fig, ax = plt.subplots(figsize=(7, 7))
+    graph = nx.Graph()
+    graph.add_nodes_from(range(8))
+    graph.add_edges_from(wire_combos[layer])
+
+
+    theta_0 = 2/n_qbits
+    theta_step = 1/n_qbits
+    pos = {
+        ind: np.array(
+            [
+                np.cos(2 * np.pi * (theta_0 + ind * theta_step)),
+                np.sin(2 * np.pi * (theta_0 + ind * theta_step)),
+            ]
+        )
+        for ind in range(n_qbits)
+    }
+    if layer.split("_")[0].upper() == "P":
+        node_color = "#ff7e79"
+    else:
+        node_color = "#0096ff"
+    nx.draw(
+        graph,
+        pos,
+        with_labels=True,
+        node_size=1000,
+        edge_color="#000000",
+        edgecolors="#000000",
+        node_color=node_color
+    )
 
 # %%
 
