@@ -444,7 +444,7 @@ from math import log2
 
 n_wires = 8
 step = 1
-pool_pattern = "eo_even"
+pool_pattern = "outside"
 wire_to_cut = 0
 
 if pool_pattern == "left":
@@ -499,54 +499,24 @@ for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, 
     wires = [wire for wire in wires if not (wire in cut_wires)]
 display(wire_combos)
 
-# %%
-from qiskit import QuantumCircuit
-from qiskit.circuit import Gate
 
-qc = QuantumCircuit(1, 2)
-qc.append(Gate(name=r"X_t", num_qubits=2, params=[]), [0])
-qc.measure(
-    [
-        0,
-    ],
-    [
-        0,
-    ],
-)
-qc.draw(output="mpl", interactive=False, filename="test.png")
 # %%
 import numpy as np
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 from qiskit import BasicAer, execute
 from qiskit.quantum_info import Pauli, state_fidelity, process_fidelity
 
-num_qubits = 2
-num_bits = 2
-bell = QuantumCircuit(2)
-bell.append(Gate(name=r"X_t", num_qubits=2, params=[]), [0])
-# bell.h(0)
-# bell.cx(0, 1)
-
-bell.draw(output="mpl")
 
 # %%
 from qiskit.circuit import Gate
-
-my_gate = Gate(name="my_gate", num_qubits=2, params=[])
-
-qr = QuantumRegister(3, "q")
-circ = QuantumCircuit(qr)
-circ.append(my_gate, [qr[0], qr[1]])
-circ.append(my_gate, [qr[1], qr[2]])
-
-circ.draw(output="mpl")
 
 # %%
 
 n_qbits = 8
 qr = QuantumRegister(n_qbits, "q")
 q_circuit = QuantumCircuit(qr)
-
+conv_color = "0096ff"
+pool_color = "ff7e79"
 for layer, wires in wire_combos.items():
     for wire_connection in wires:
         q_circuit.append(
@@ -556,14 +526,60 @@ for layer, wires in wire_combos.items():
         q_circuit.barrier()
 
 
-
-
 import random
-r = lambda: random.randint(0,255)
-disp_color={}
-for layer in wire_combos.keys():
-    disp_color[layer] = '#%02X%02X%02X' % (r(),r(),r())
-    
 
-q_circuit.draw(output="mpl", plot_barriers=False, justify='none', style={"displaycolor":disp_color})
+r = lambda: random.randint(0, 255)
+# disp_color[layer] = '#%02X%02X%02X' % (r(),r(),r())
+disp_color = {}
+for layer in wire_combos.keys():
+    if layer.split("_")[0].upper() == "P":
+        disp_color[layer] = "#ff7e79"
+    else:
+        disp_color[layer] = "#0096ff"
+
+q_circuit.draw(
+    output="mpl",
+    plot_barriers=False,
+    justify="none",
+    style={"displaycolor": disp_color},
+)
+# %%
+# graph
+import networkx as nx
+import matplotlib.pyplot as plt
+
+n_qbits = 8
+fig, ax = plt.subplots(figsize=(7, 7))
+graph = nx.Graph()
+
+layer = "c_1"
+
+graph.add_nodes_from(range(8))
+graph.add_edges_from(wire_combos[layer])
+
+theta_0 = 2/n_qbits
+theta_step = 1/n_qbits
+pos = {
+    ind: np.array(
+        [
+            np.cos(2 * np.pi * (theta_0 + ind * theta_step)),
+            np.sin(2 * np.pi * (theta_0 + ind * theta_step)),
+        ]
+    )
+    for ind in range(n_qbits)
+}
+nx.draw_networkx_nodes
+# labels = nx.draw_networkx_labels(graph, pos=pos)
+# nodes=nx.draw_networkx_nodes(graph,pos=pos, node_color="#ffffff")
+nx.draw(
+    graph,
+    pos,
+    with_labels=True,
+    node_size=1000,
+    edge_color="#A000A3",
+    edgecolors="#000000",
+)
+
+# %%
+
 # %%
