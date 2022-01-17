@@ -555,34 +555,15 @@ for layer, wires in wire_combos.items():
         )
         q_circuit.barrier()
 
-q_circuit.draw(output="mpl", plot_barriers=False, justify='none')
-
-# %%
-qr = QuantumRegister(n_qbits, "q")
-q_circuit = QuantumCircuit(qr)
 
 
-n_qbits = 8
-qr = QuantumRegister(n_qbits, "q")
-q_circuit = QuantumCircuit(qr)
 
-layer = list(wire_combos.keys())[0]
-wires = wire_combos[layer]
-for wire_connection in wires:
-    q_circuit.append(
-        Gate(name=layer, num_qubits=2, params=[]),
-        (qr[wire_connection[0]], qr[wire_connection[1]]),
-    )
-    i += 1
-q_circuit.draw(output="mpl")
-# %%
-layer = list(wire_combos.keys())[1]
-wires = wire_combos[layer]
-for wire_connection in wires:
-    q_circuit.append(
-        Gate(name=layer, num_qubits=2, params=[]),
-        (qr[wire_connection[0]], qr[wire_connection[1]]),
-    )
-    i += 1
-q_circuit.draw(output="mpl", plot_barriers=False)
+import random
+r = lambda: random.randint(0,255)
+disp_color={}
+for layer in wire_combos.keys():
+    disp_color[layer] = '#%02X%02X%02X' % (r(),r(),r())
+    
+
+q_circuit.draw(output="mpl", plot_barriers=False, justify='none', style={"displaycolor":disp_color})
 # %%
