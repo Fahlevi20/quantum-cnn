@@ -9,6 +9,8 @@ import os
 from joblib import dump, load
 from collections import namedtuple
 from ast import literal_eval
+from qiskit import QuantumCircuit, QuantumRegister
+from qiskit.circuit import Gate
 
 from sklearn.metrics import (
     classification_report,
@@ -888,7 +890,31 @@ def gather_results_118_135(exp_id, path_experiments=f"/home/matt/dev/projects/qu
         result_data = result_data.append(tmp_result, ignore_index=True)
     
     return result_data.copy()
-# %%
+
+
+def get_circuit_diagram(wire_combos, n_qbits=8, conv_color = "0096ff", pool_color = "ff7e79"):
+    qr = QuantumRegister(n_qbits, "q")
+    q_circuit = QuantumCircuit(qr)
+
+    disp_color = {}
+    for layer, wires in wire_combos.items():
+        if layer.split("_")[0].upper() == "P":
+            disp_color[layer] = "#ff7e79"
+        else:
+            disp_color[layer] = "#0096ff"
+        for wire_connection in wires:
+            q_circuit.append(
+                Gate(name=layer, num_qubits=2, params=[]),
+                (qr[wire_connection[0]], qr[wire_connection[1]]),
+            )
+            q_circuit.barrier()
+
+    return q_circuit.draw(
+        output="mpl",
+        plot_barriers=False,
+        justify="none",
+        style={"displaycolor": disp_color},
+    )
 # %%
 
 # %%

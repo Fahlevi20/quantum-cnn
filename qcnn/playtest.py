@@ -518,10 +518,13 @@ from qiskit.circuit import Gate
 
 
 n_qbits = 8
-qr = QuantumRegister(n_qbits, "q")
-q_circuit = QuantumCircuit(qr)
 conv_color = "0096ff"
 pool_color = "ff7e79"
+wire_combos
+
+qr = QuantumRegister(n_qbits, "q")
+q_circuit = QuantumCircuit(qr)
+
 for layer, wires in wire_combos.items():
     for wire_connection in wires:
         q_circuit.append(
@@ -607,4 +610,86 @@ for layer in wire_combos.keys():
 
 # %%
 
+# %%
+path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
+exp_id = 119
+config = get_experiment_config(path_experiments, exp_id)
+
+
+path_single_experiment = f"{path_experiments}/{exp_id}"
+model_names = get_model_names(path_single_experiment)
+
+Results = namedtuple(
+    "Results", ["model_name", "y_test_hat", "clf", "model_configuration", "samples_tfd", "pipeline"]
+)
+result_list = []
+for model_name in model_names:
+    y_test_hat = pd.read_csv(f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0)
+    clf = load(f"{path_single_experiment}/{model_name}-clf_results.joblib")
+    model_configuration = load(f"{path_single_experiment}/{model_name}-model_configuration.joblib")
+    samples_tfd = load(f"{path_single_experiment}/{model_name}-samples_tfd.joblib")
+    pipeline = load(f"{path_single_experiment}/{model_name}-pipeline.joblib")
+    result_list = result_list + [
+        Results(
+            model_name,
+            y_test_hat=y_test_hat,
+            clf=clf,
+            model_configuration=model_configuration,
+            samples_tfd=samples_tfd,
+            pipeline=pipeline,
+        )
+    ]
+# from qcnn_estimator import Qcnn_Classifier
+# model = Qcnn_Classifier(
+#             layer_defintion=qcnn_structure_permutation,
+#             encoding_type=embedding_type,
+#             encoding_kwargs=encoding_kwargs,
+#         )
+# %%
+from circuit_presets import get_wire_combos
+from collections import namedtuple
+n_wires = 8
+c_step=1
+pool_pattern="eo_even"
+p_step=0
+wire_to_cut=0
+
+default_wire_combos = get_wire_combos(8,1,"eo_even",p_step=0,wire_to_cut=0)
+
+default_wire_combos.get(result_list[0].clf.best_estimator_.layer_dict_.keys())
+# %%
+result = result_list[0]
+layers = result_list[0].clf.best_estimator_.layer_dict_.keys()
+
+wire_combos = {layer: wire_pattern for layer, wire_pattern in default_wire_combos.items() if layer in layers}
+get_circuit_diagram(wire_combos, n_qbits=8)
+# %%
+
+
+from qiskit import QuantumCircuit, QuantumRegister
+from qiskit.circuit import Gate
+
+def get_circuit_diagram(wire_combos, n_qbits=8, conv_color = "0096ff", pool_color = "ff7e79"):
+    qr = QuantumRegister(n_qbits, "q")
+    q_circuit = QuantumCircuit(qr)
+
+    disp_color = {}
+    for layer, wires in wire_combos.items():
+        if layer.split("_")[0].upper() == "P":
+            disp_color[layer] = "#ff7e79"
+        else:
+            disp_color[layer] = "#0096ff"
+        for wire_connection in wires:
+            q_circuit.append(
+                Gate(name=layer, num_qubits=2, params=[]),
+                (qr[wire_connection[0]], qr[wire_connection[1]]),
+            )
+            q_circuit.barrier()
+
+    return q_circuit.draw(
+        output="mpl",
+        plot_barriers=False,
+        justify="none",
+        style={"displaycolor": disp_color},
+    )
 # %%

@@ -22,7 +22,24 @@ CIRCUIT_OPTIONS = {
 POOLING_OPTIONS = {"psatz1": 2, "psatz2": 0, "psatz3": 3}
 
 
-def get_wire_combos(n_wires, step, pool_pattern, wire_to_cut=1):
+def get_wire_combos(n_wires, c_step, pool_pattern, p_step=0, wire_to_cut=1):
+    """ n_wires = 8
+        c_step = 1
+        p_step = 0
+        pool_pattern = "eo_even"
+        wire_to_cut = 0
+        ^^produces the original papaers pattern
+
+    Args:
+        n_wires ([type]): [description]
+        c_step ([type]): [description]
+        pool_pattern ([type]): [description]
+        p_step (int, optional): [description]. Defaults to 0.
+        wire_to_cut (int, optional): [description]. Defaults to 1.
+
+    Returns:
+        [type]: [description]
+    """
     if pool_pattern == "left":
         # 0 1 2 3 4 5 6 7
         # x x x x
@@ -60,23 +77,23 @@ def get_wire_combos(n_wires, step, pool_pattern, wire_to_cut=1):
         ]  # outside
     wire_combos = {}
     wires = range(n_wires)
-    for layer_ind, i in zip(
-        range(int(log2(n_wires))), range(int(log2(n_wires)), 0, -1)
-    ):
+    for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, -1)):
         conv_size = 2 ** i
         circle_n = lambda x: x % conv_size
         wire_combos[f"c_{layer_ind+1}"] = [
-            (wires[x], wires[circle_n(x + step)]) for x in range(conv_size)
+            (wires[x], wires[circle_n(x + c_step)]) for x in range(conv_size)
         ]
         if (i == 1) and (len(wire_combos[f"c_{layer_ind+1}"]) > 1):
             wire_combos[f"c_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
 
-        wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
+        tmp_pool_selection = pool_filter(wire_combos[f"c_{layer_ind+1}"])
+        cut_wires = [x[wire_to_cut] for x in tmp_pool_selection]
+        wires = [wire for wire in wires if not (wire in cut_wires)]
+        p_circle_n = lambda x: x % len(cut_wires)
+        wire_combos[f"p_{layer_ind+1}"] = [(cut_wires[p_circle_n(x + p_step)], wires[x]) for x in range(len(cut_wires))]
+        # wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
         if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
             wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
-        # for next iteration
-        cut_wires = [x[wire_to_cut] for x in wire_combos[f"p_{layer_ind+1}"]]
-        wires = [wire for wire in wires if not (wire in cut_wires)]
     return wire_combos
 
 
