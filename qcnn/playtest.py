@@ -498,7 +498,9 @@ for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, 
     cut_wires = [x[wire_to_cut] for x in tmp_pool_selection]
     wires = [wire for wire in wires if not (wire in cut_wires)]
     p_circle_n = lambda x: x % len(cut_wires)
-    wire_combos[f"p_{layer_ind+1}"] = [(cut_wires[p_circle_n(x + p_step)], wires[x]) for x in range(len(cut_wires))]
+    wire_combos[f"p_{layer_ind+1}"] = [
+        (cut_wires[p_circle_n(x + p_step)], wires[x]) for x in range(len(cut_wires))
+    ]
     # wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
     if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
         wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
@@ -508,49 +510,6 @@ for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, 
 display(wire_combos)
 
 
-
-import numpy as np
-from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
-from qiskit import BasicAer, execute
-from qiskit.quantum_info import Pauli, state_fidelity, process_fidelity
-from qiskit.circuit import Gate
-
-
-
-n_qbits = 8
-conv_color = "0096ff"
-pool_color = "ff7e79"
-wire_combos
-
-qr = QuantumRegister(n_qbits, "q")
-q_circuit = QuantumCircuit(qr)
-
-for layer, wires in wire_combos.items():
-    for wire_connection in wires:
-        q_circuit.append(
-            Gate(name=layer, num_qubits=2, params=[]),
-            (qr[wire_connection[0]], qr[wire_connection[1]]),
-        )
-        q_circuit.barrier()
-
-
-import random
-
-r = lambda: random.randint(0, 255)
-# disp_color[layer] = '#%02X%02X%02X' % (r(),r(),r())
-disp_color = {}
-for layer in wire_combos.keys():
-    if layer.split("_")[0].upper() == "P":
-        disp_color[layer] = "#ff7e79"
-    else:
-        disp_color[layer] = "#0096ff"
-
-q_circuit.draw(
-    output="mpl",
-    plot_barriers=False,
-    justify="none",
-    style={"displaycolor": disp_color},
-)
 # %%
 # graph
 # TODO find way to show qbit is removed in make node small or something
@@ -558,55 +517,53 @@ q_circuit.draw(
 import networkx as nx
 import matplotlib.pyplot as plt
 
-n_qbits = 8
 
+def get_wire_combos_graph(
+    wire_combos, n_qbits=8, conv_color="#0096ff", pool_color="#ff7e79"
+):
 
-layer = "p_1"
-conv_color = "0096ff"
-pool_color = "ff7e79"
+    # labels = nx.draw_networkx_labels(graph, pos=pos)
+    # nodes=nx.draw_networkx_nodes(graph,pos=pos, node_color="#ffffff")
+    node_sizes = [1000 for ind in range(n_qbits)]
+    n_graphs = {}
+    for layer in wire_combos.keys():
+        
+        graph = nx.DiGraph()
+        graph.add_nodes_from(range(n_qbits))
+        graph.add_edges_from(wire_combos[layer])
 
-
-# labels = nx.draw_networkx_labels(graph, pos=pos)
-# nodes=nx.draw_networkx_nodes(graph,pos=pos, node_color="#ffffff")
-node_sizes = [1000 for ind in range(n_qbits)]
-for layer in wire_combos.keys():
-    fig, ax = plt.subplots(figsize=(7, 7))
-    graph = nx.DiGraph()
-    graph.add_nodes_from(range(n_qbits))
-    graph.add_edges_from(wire_combos[layer])
-
-    theta_0 = 2 / n_qbits
-    theta_step = 1 / n_qbits
-    pos = {
-        ind: np.array(
-            [
-                np.cos(2 * np.pi * (theta_0 + ind * theta_step)),
-                np.sin(2 * np.pi * (theta_0 + ind * theta_step)),
+        # Change order around a circle, this way you start at x=0 then move left around
+        theta_0 = 2 / n_qbits
+        theta_step = 1 / n_qbits
+        pos = {
+            ind: np.array(
+                [
+                    np.cos(2 * np.pi * (theta_0 + ind * theta_step)),
+                    np.sin(2 * np.pi * (theta_0 + ind * theta_step)),
+                ]
+            )
+            for ind in range(n_qbits)
+        }
+        if layer.split("_")[0].upper() == "P":
+            node_color = pool_color
+            # in the get_wire_combos function we add cut_wires at index 0, if that changes
+            # this should update TODO
+            cut_wires = [x[0] for x in wire_combos[layer]]
+            node_sizes = [
+                100 if (ind in cut_wires) else node_size
+                for ind, node_size in zip(range(n_qbits), node_sizes)
             ]
-        )
-        for ind in range(n_qbits)
-    }
-    if layer.split("_")[0].upper() == "P":
-        node_color = "#ff7e79"
-        cut_wires = [x[0] for x in wire_combos[layer]]
-        node_sizes = [
-            100 if (ind in cut_wires) else node_size
-            for ind, node_size in zip(range(n_qbits), node_sizes)
-        ]
-    else:
-        node_color = "#0096ff"
+        else:
+            node_color = conv_color
 
-    # cut_wires = [x[wire_to_cut] for x in wire_combos[layer]]
-    # node_sizes = [100 if (ind in cut_wires) else 1000 for ind in range(n_qbits)]
-    nx.draw(
-        graph,
-        pos,
-        with_labels=True,
-        node_size=node_sizes,
-        edge_color="#000000",
-        edgecolors="#000000",
-        node_color=node_color,
-    )
+        # cut_wires = [x[wire_to_cut] for x in wire_combos[layer]]
+        # node_sizes = [100 if (ind in cut_wires) else 1000 for ind in range(n_qbits)]
+        n_graphs[layer] = (graph, pos, node_sizes, node_color)
+
+    return n_graphs
+        
+        
+
 
 # %%
 
@@ -620,13 +577,25 @@ path_single_experiment = f"{path_experiments}/{exp_id}"
 model_names = get_model_names(path_single_experiment)
 
 Results = namedtuple(
-    "Results", ["model_name", "y_test_hat", "clf", "model_configuration", "samples_tfd", "pipeline"]
+    "Results",
+    [
+        "model_name",
+        "y_test_hat",
+        "clf",
+        "model_configuration",
+        "samples_tfd",
+        "pipeline",
+    ],
 )
 result_list = []
 for model_name in model_names:
-    y_test_hat = pd.read_csv(f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0)
+    y_test_hat = pd.read_csv(
+        f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0
+    )
     clf = load(f"{path_single_experiment}/{model_name}-clf_results.joblib")
-    model_configuration = load(f"{path_single_experiment}/{model_name}-model_configuration.joblib")
+    model_configuration = load(
+        f"{path_single_experiment}/{model_name}-model_configuration.joblib"
+    )
     samples_tfd = load(f"{path_single_experiment}/{model_name}-samples_tfd.joblib")
     pipeline = load(f"{path_single_experiment}/{model_name}-pipeline.joblib")
     result_list = result_list + [
@@ -648,48 +617,27 @@ for model_name in model_names:
 # %%
 from circuit_presets import get_wire_combos
 from collections import namedtuple
-n_wires = 8
-c_step=1
-pool_pattern="eo_even"
-p_step=0
-wire_to_cut=0
 
-default_wire_combos = get_wire_combos(8,1,"eo_even",p_step=0,wire_to_cut=0)
+n_wires = 8
+c_step = 1
+pool_pattern = "eo_even"
+p_step = 0
+wire_to_cut = 0
+
+default_wire_combos = get_wire_combos(8, 1, "eo_even", p_step=0, wire_to_cut=0)
 
 default_wire_combos.get(result_list[0].clf.best_estimator_.layer_dict_.keys())
 # %%
 result = result_list[0]
 layers = result_list[0].clf.best_estimator_.layer_dict_.keys()
 
-wire_combos = {layer: wire_pattern for layer, wire_pattern in default_wire_combos.items() if layer in layers}
+wire_combos = {
+    layer: wire_pattern
+    for layer, wire_pattern in default_wire_combos.items()
+    if layer in layers
+}
 get_circuit_diagram(wire_combos, n_qbits=8)
 # %%
 
 
-from qiskit import QuantumCircuit, QuantumRegister
-from qiskit.circuit import Gate
-
-def get_circuit_diagram(wire_combos, n_qbits=8, conv_color = "0096ff", pool_color = "ff7e79"):
-    qr = QuantumRegister(n_qbits, "q")
-    q_circuit = QuantumCircuit(qr)
-
-    disp_color = {}
-    for layer, wires in wire_combos.items():
-        if layer.split("_")[0].upper() == "P":
-            disp_color[layer] = "#ff7e79"
-        else:
-            disp_color[layer] = "#0096ff"
-        for wire_connection in wires:
-            q_circuit.append(
-                Gate(name=layer, num_qubits=2, params=[]),
-                (qr[wire_connection[0]], qr[wire_connection[1]]),
-            )
-            q_circuit.barrier()
-
-    return q_circuit.draw(
-        output="mpl",
-        plot_barriers=False,
-        justify="none",
-        style={"displaycolor": disp_color},
-    )
 # %%

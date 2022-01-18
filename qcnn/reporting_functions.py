@@ -11,13 +11,15 @@ from collections import namedtuple
 from ast import literal_eval
 from qiskit import QuantumCircuit, QuantumRegister
 from qiskit.circuit import Gate
+import networkx as nx
+
 
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     ConfusionMatrixDisplay,
     precision_recall_fscore_support,
-    accuracy_score
+    accuracy_score,
 )
 
 from circuit_presets import (
@@ -254,13 +256,16 @@ def plot_loss(data, groupby, group_filter=[], figsize=(30, 5)):
                 axes[1].set_title(
                     f"{col}-{'-'.join(group_filter)} Test Cost Per Iteration"
                 )
+
+
 def get_line_plot_data(data, groupby, metric):
     grouped_data = data.groupby(groupby)[metric].max()
     grouped_data_unstack = grouped_data.copy().unstack(level=-1)
     grouped_data_unstack[grouped_data_unstack.index.name] = grouped_data_unstack.index
     return grouped_data_unstack.copy()
 
-def plot_119_accuracy_per_structure(result_data, figsize=(14,7)):
+
+def plot_119_accuracy_per_structure(result_data, figsize=(14, 7)):
     groupby = ["additional_structure", "selection_method"]
     metric = "accuracy"
     data_0 = result_data[result_data["target_pair_str"] == "rock_reggae"].copy()
@@ -269,6 +274,7 @@ def plot_119_accuracy_per_structure(result_data, figsize=(14,7)):
     plot_data_1 = get_line_plot_data(data_1, groupby, metric)
     # sns.set(font_scale=1.2)
     import matplotlib.ticker as ticker
+
     with sns.axes_style("whitegrid"):
         fig, axes = plt.subplots(1, 2, figsize=figsize, sharey=True)
         # axes[0].yaxis.set_major_locator(ticker.MultipleLocator(0.1))
@@ -290,10 +296,9 @@ def plot_119_accuracy_per_structure(result_data, figsize=(14,7)):
             markers=True,
             dashes=False,
             marker="o",
-            
         )
         axes[1].set_title("Classical vs Pop")
-        axes[1].set_xlabel("Additional Structure")    
+        axes[1].set_xlabel("Additional Structure")
         sns.lineplot(
             ax=axes[1],
             data=pd.melt(
@@ -321,6 +326,7 @@ def check_filter_on_list(filter_list, check_list):
         return True
     else:
         return len(set(filter_list) & set(check_list)) > 0
+
 
 def gather_results_118_135(
     exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"
@@ -724,7 +730,10 @@ def get_model_names(
     )
     return model_names
 
-def gather_results_0_12(exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"):
+
+def gather_results_0_12(
+    exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"
+):
     path_single_experiment = f"{path_experiments}/{exp_id}"
     model_names = get_model_names(path_single_experiment, "confusion-matrix.csv")
 
@@ -787,8 +796,10 @@ def gather_results_0_12(exp_id, path_experiments=f"/home/matt/dev/projects/quant
         selection_method = model_name.split("-")[0]
         selection_param_str = model_name.split("-")[1]
         if int(selection_param_str) > 8:
-            if model_name.split('-')[3]=="Compact":
-                embedding_type = f"{model_name.split('-')[2]}_{model_name.split('-')[3]}"
+            if model_name.split("-")[3] == "Compact":
+                embedding_type = (
+                    f"{model_name.split('-')[2]}_{model_name.split('-')[3]}"
+                )
                 circ_name = model_name.split("-")[4]
             else:
                 embedding_type = f"{model_name.split('-')[2]}_{model_name.split('-')[3]}_{model_name.split('-')[4]}"
@@ -814,18 +825,33 @@ def gather_results_0_12(exp_id, path_experiments=f"/home/matt/dev/projects/quant
         result_data = result_data.append(result, ignore_index=True)
     return result_data.copy()
 
-def gather_results_118_135(exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"):
+
+def gather_results_118_135(
+    exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"
+):
     path_single_experiment = f"{path_experiments}/{exp_id}"
     model_names = get_model_names(path_single_experiment)
 
     Results = namedtuple(
-        "Results", ["model_name", "y_test_hat", "clf", "model_configuration", "samples_tfd", "pipeline"]
+        "Results",
+        [
+            "model_name",
+            "y_test_hat",
+            "clf",
+            "model_configuration",
+            "samples_tfd",
+            "pipeline",
+        ],
     )
     result_list = []
     for model_name in model_names:
-        y_test_hat = pd.read_csv(f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0)
+        y_test_hat = pd.read_csv(
+            f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0
+        )
         clf = load(f"{path_single_experiment}/{model_name}-clf_results.joblib")
-        model_configuration = load(f"{path_single_experiment}/{model_name}-model_configuration.joblib")
+        model_configuration = load(
+            f"{path_single_experiment}/{model_name}-model_configuration.joblib"
+        )
         samples_tfd = load(f"{path_single_experiment}/{model_name}-samples_tfd.joblib")
         pipeline = load(f"{path_single_experiment}/{model_name}-pipeline.joblib")
         result_list = result_list + [
@@ -852,6 +878,7 @@ def gather_results_118_135(exp_id, path_experiments=f"/home/matt/dev/projects/qu
             "selection_param_str": [],
             "target_pair": [],
             "additional_structure": [],
+            "additional_structure_str": [],
             "target_pair_str": [],
             "mean_test_score": [],
             "std_test_score": [],
@@ -878,8 +905,15 @@ def gather_results_118_135(exp_id, path_experiments=f"/home/matt/dev/projects/qu
         tmp_result["model_name"] = model_name
 
         tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
-        tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][clf.best_index_]
-        tmp_result["std_test_score"] = clf.cv_results_["std_test_score"][clf.best_index_]
+        tmp_result[
+            "additional_structure_str"
+        ] = f"{model_configuration.additional_structure[0]}_{model_configuration.additional_structure[1]}_{model_configuration.additional_structure[2]}"
+        tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][
+            clf.best_index_
+        ]
+        tmp_result["std_test_score"] = clf.cv_results_["std_test_score"][
+            clf.best_index_
+        ]
         tmp_result["params"] = clf.cv_results_["params"][clf.best_index_]
 
         tmp_result["accuracy"] = accuracy
@@ -888,11 +922,13 @@ def gather_results_118_135(exp_id, path_experiments=f"/home/matt/dev/projects/qu
         tmp_result["f1"] = fscore
         tmp_result["loss_train_history"] = None  # set for quantum
         result_data = result_data.append(tmp_result, ignore_index=True)
-    
+
     return result_data.copy()
 
 
-def get_circuit_diagram(wire_combos, n_qbits=8, conv_color = "0096ff", pool_color = "ff7e79"):
+def get_circuit_diagram(
+    wire_combos, n_qbits=8, conv_color="0096ff", pool_color="ff7e79"
+):
     qr = QuantumRegister(n_qbits, "q")
     q_circuit = QuantumCircuit(qr)
 
@@ -915,6 +951,53 @@ def get_circuit_diagram(wire_combos, n_qbits=8, conv_color = "0096ff", pool_colo
         justify="none",
         style={"displaycolor": disp_color},
     )
+
+
+def get_wire_combos_graph(
+    wire_combos, n_qbits=8, conv_color="#0096ff", pool_color="#ff7e79"
+):
+
+    # labels = nx.draw_networkx_labels(graph, pos=pos)
+    # nodes=nx.draw_networkx_nodes(graph,pos=pos, node_color="#ffffff")
+    node_sizes = [1000 for ind in range(n_qbits)]
+    n_graphs = {}
+    for layer in wire_combos.keys():
+
+        graph = nx.DiGraph()
+        graph.add_nodes_from(range(n_qbits))
+        graph.add_edges_from(wire_combos[layer])
+
+        # Change order around a circle, this way you start at x=0 then move left around
+        theta_0 = 2 / n_qbits
+        theta_step = 1 / n_qbits
+        pos = {
+            ind: np.array(
+                [
+                    np.cos(2 * np.pi * (theta_0 + ind * theta_step)),
+                    np.sin(2 * np.pi * (theta_0 + ind * theta_step)),
+                ]
+            )
+            for ind in range(n_qbits)
+        }
+        if layer.split("_")[0].upper() == "P":
+            node_color = pool_color
+            # in the get_wire_combos function we add cut_wires at index 0, if that changes
+            # this should update TODO
+            cut_wires = [x[0] for x in wire_combos[layer]]
+            node_sizes = [
+                100 if (ind in cut_wires) else node_size
+                for ind, node_size in zip(range(n_qbits), node_sizes)
+            ]
+        else:
+            node_color = conv_color
+
+        # cut_wires = [x[wire_to_cut] for x in wire_combos[layer]]
+        # node_sizes = [100 if (ind in cut_wires) else 1000 for ind in range(n_qbits)]
+        n_graphs[layer] = (graph, pos, node_sizes, node_color)
+
+    return n_graphs
+
+
 # %%
 
 # %%
