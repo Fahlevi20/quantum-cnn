@@ -441,10 +441,13 @@ plot_data_1[{"pca", "tree"}]
 
 # %%
 from math import log2
+import networkx as nx
+import matplotlib.pyplot as plt
 
 n_wires = 8
-step = 1
-pool_pattern = "inside"
+c_step = 1
+p_step = 0
+pool_pattern = "eo_even"
 wire_to_cut = 0
 
 if pool_pattern == "left":
@@ -486,17 +489,22 @@ for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, 
     conv_size = 2 ** i
     circle_n = lambda x: x % conv_size
     wire_combos[f"c_{layer_ind+1}"] = [
-        (wires[x], wires[circle_n(x + step)]) for x in range(conv_size)
+        (wires[x], wires[circle_n(x + c_step)]) for x in range(conv_size)
     ]
     if (i == 1) and (len(wire_combos[f"c_{layer_ind+1}"]) > 1):
         wire_combos[f"c_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
 
-    wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
+    tmp_pool_selection = pool_filter(wire_combos[f"c_{layer_ind+1}"])
+    cut_wires = [x[wire_to_cut] for x in tmp_pool_selection]
+    wires = [wire for wire in wires if not (wire in cut_wires)]
+    p_circle_n = lambda x: x % len(cut_wires)
+    wire_combos[f"p_{layer_ind+1}"] = [(cut_wires[p_circle_n(x + p_step)], wires[x]) for x in range(len(cut_wires))]
+    # wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
     if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
         wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
     # for next iteration
-    cut_wires = [x[wire_to_cut] for x in wire_combos[f"p_{layer_ind+1}"]]
-    wires = [wire for wire in wires if not (wire in cut_wires)]
+    # cut_wires = [x[wire_to_cut] for x in wire_combos[f"p_{layer_ind+1}"]]
+    # wires = [wire for wire in wires if not (wire in cut_wires)]
 display(wire_combos)
 
 
@@ -540,7 +548,7 @@ q_circuit.draw(
     justify="none",
     style={"displaycolor": disp_color},
 )
-
+# %%
 # graph
 # TODO find way to show qbit is removed in make node small or something
 # https://towardsdatascience.com/customizing-networkx-graphs-f80b4e69bedf
@@ -560,7 +568,7 @@ pool_color = "ff7e79"
 node_sizes = [1000 for ind in range(n_qbits)]
 for layer in wire_combos.keys():
     fig, ax = plt.subplots(figsize=(7, 7))
-    graph = nx.Graph()
+    graph = nx.DiGraph()
     graph.add_nodes_from(range(n_qbits))
     graph.add_edges_from(wire_combos[layer])
 
@@ -577,7 +585,7 @@ for layer in wire_combos.keys():
     }
     if layer.split("_")[0].upper() == "P":
         node_color = "#ff7e79"
-        cut_wires = [x[wire_to_cut] for x in wire_combos[layer]]
+        cut_wires = [x[0] for x in wire_combos[layer]]
         node_sizes = [
             100 if (ind in cut_wires) else node_size
             for ind, node_size in zip(range(n_qbits), node_sizes)
