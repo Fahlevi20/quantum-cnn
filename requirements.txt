@@ -12,7 +12,7 @@ networkx
 
 # music
 librosa
-simpleaudio # sudo apt-get install -y python3-dev libasound2-dev <- dependancy for system
+# simpleaudio # sudo apt-get install -y python3-dev libasound2-dev <- dependancy for system
 wave
 
 # other

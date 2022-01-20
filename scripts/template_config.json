@@ -1,16 +1,16 @@
 {
-    "ID": 152,
+    "ID": 200,
     "path": "/home/matt/dev/projects/quantum-cnn/experiments",
     "data": {
         "target_pairs": [
             [
-                "rock",
-                "reggae"
+                "classical",
+                "pop"
             ]
         ],
         "target_column": "label",
         "type": "2d",
-        "path": "/home/matt/dev/projects/quantum-cnn/data/archive/Data/features_30_sec.csv",
+        "path": "/home/matt/dev/projects/quantum-cnn/data/Data/features_30_sec.csv",
         "sampling": {
             "test_size": 0.3,
             "random_state": 42
@@ -33,71 +33,22 @@
                 },
                 "feature_selection": {
                     "method": {
-                        "custom_mask": {
-                            "support_mask": [
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                true,
-                                false,
-                                true,
-                                false,
-                                true,
-                                false,
-                                true,
-                                false,
-                                true,
-                                false,
-                                true,
-                                false,
-                                false,
-                                false,
-                                true,
-                                false,
-                                false,
-                                false,
-                                false,
-                                true,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false,
-                                false
+                        "pca": {
+                            "n_components": [
+                                8
+                            ]
+                        },
+                        "tree": {
+                            "max_features": [
+                                8
                             ],
-                            "dont_permute": true
+                            "n_estimators": [
+                                50
+                            ]
                         }
                     }
                 },
-                "ignore": true
+                "ignore": false
             }
         },
         "classical": {
@@ -124,7 +75,7 @@
                         }
                     }
                 },
-                "ignore": false
+                "ignore": true
             },
             "other": {
                 "scaler": {
@@ -151,22 +102,25 @@
                     "psatz1"
                 ],
                 "wire_pattern_list": [
-                    [
-                        8,
-                        1,
-                        "outside"
-                    ]
+                    {
+                        "n_wires": 8,
+                        "c_step":1,
+                        "pool_pattern":"eo_even",
+                        "p_step": 0,
+                        "wire_to_cut":0
+                    }
+                    
                 ],
                 "custom_structures": {},
                 "param_grid": {
                     "n_iter": [
-                        100
+                        1
                     ],
                     "batch_size": [
                         25
                     ]
                 },
-                "ignore": true
+                "ignore": false
             }
         },
         "classical": {
@@ -201,7 +155,7 @@
                         10
                     ]
                 },
-                "ignore": false
+                "ignore": true
             },
             "cnn": {
                 "param_grid": {},
@@ -211,5 +165,5 @@
         "classification_type": "binary",
         "cv_folds": 5
     },
-    "extra_info": "debug + classical test. svm on rock reggae"
+    "extra_info": "debug + quantum wire pattern+ test on hep"
 }
