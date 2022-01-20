@@ -651,62 +651,16 @@ import seaborn as sns
 
 result_list = get_model_result_list(get_experiment_config(path_experiments, exp_id))
 # %%
-from matplotlib import ticker
+
 ind = 0
 val="U_5"
 filter_struc = lambda data, ind, val: data.apply(lambda row: row["additional_structure"][ind]==val, axis=1)
 filter_col_val = lambda data, col, val: data.apply(lambda row: row[col]==val, axis=1)
 
 
-def plot_122_scatter(result_data, figsize = (10, 10)):    
-    groupby = ["additional_structure_str", "selection_method"]
-    metric = "accuracy"
-    filter_struc = lambda data, ind, val: data.apply(lambda row: row["additional_structure"][ind]==val, axis=1)
-    filter_col_val = lambda data, col, val: data.apply(lambda row: row[col]==val, axis=1)
-    U_5_rockreg = result_data[filter_col_val(result_data, "target_pair_str", "rock_reggae") & filter_struc(result_data,0,"U_5")].copy()
-    # U_5_classpop = result_data[filter_col_val(result_data, "target_pair_str", "classical_pop") & filter_struc(result_data,0,"U_5")].copy()
-    # U_SU4_rockreg = result_data[filter_col_val(result_data, "target_pair_str", "rock_reggae") & filter_struc(result_data,0,"U_SU4")].copy()
-    # U_SU4_classpop = result_data[filter_col_val(result_data, "target_pair_str", "classical_pop") & filter_struc(result_data,0,"U_SU4")].copy()
-    plot_U_5_rockreg=get_line_plot_data(U_5_rockreg, groupby, metric)
-    # plot_U_5_classpop=get_line_plot_data(U_5_classpop, groupby, metric)
-    # plot_U_SU4_rockreg=get_line_plot_data(U_SU4_rockreg, groupby, metric)
-    # plot_U_SU4_classpop=get_line_plot_data(U_SU4_classpop, groupby, metric)
-
-    plot_data=plot_U_5_rockreg
-    plot_data["additional_structure_str"]=plot_data.apply(lambda row: "_".join(row["additional_structure_str"].split("_")[3:]), axis=1)
-    plot_data.index=plot_data["additional_structure_str"]
-    # plot_U_5_rockreg = plot_U_5_rockreg.drop("additional_structure_str", axis=0)
-    # plot_U_SU4_classpop["wire_pattern"]=plot_U_5_classpop.apply(lambda row: "_".join(row["additional_structure_str"].split("_")[3:]), axis=1)
-    # plot_U_SU4_rockreg["wire_pattern"]=plot_U_SU4_rockreg.apply(lambda row: "_".join(row["additional_structure_str"].split("_")[3:]), axis=1)
-    # plot_U_SU4_classpop["wire_pattern"]=plot_U_SU4_classpop.apply(lambda row: "_".join(row["additional_structure_str"].split("_")[3:]), axis=1)
-    markers = {"pca": "P", "tree": "v"}
-    with sns.axes_style("whitegrid"):
-        fig, axes = plt.subplots(1, 1, figsize=figsize, sharey=True)
-        axes.set_title("U_5, Rock vs Reggae")
-        axes.set_xlabel("Wire Pattern")
-        axes=sns.scatterplot(
-            data=pd.melt(
-                plot_data,
-                "additional_structure_str",
-                value_name="Accuracy",
-                var_name="selection_method",
-            ),
-            x="additional_structure_str",
-            y="Accuracy",
-            hue="selection_method",
-            markers=markers,
-            style="selection_method",
-            #palette=["#4c72b0","#dd8452"],
-            s=100,
-            # marker="o",
-        )
-
-        plt.xticks(rotation=90)
-        axes.set(ylim=(0, 1))
-        #axes.set_aspect('equal', adjustable='box')
-        # 24 is the number of wire patterns, this helps make the plot square
-        axes.yaxis.set_major_locator(ticker.MultipleLocator(1/24))
 
 
 
+# %%
+plot_122_scatter(result_data)
 # %%

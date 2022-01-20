@@ -30,13 +30,18 @@ def main(args):
         path = config["data"].get("path", None)
         set_name = config["data"].get("set_name", None)
 
-
         test_size = config["data"]["sampling"].get("test_size", 0.3)
         random_state = config["data"]["sampling"].get("random_state", 42)
 
-        samples = get_image_data(path, set_name=set_name, test_size=test_size, random_state=test_size)
+        samples = get_image_data(
+            path, set_name=set_name, test_size=test_size, random_state=test_size
+        )
 
-        np.savetxt(f"{config.get('path')}/{config.get('ID')}/y_test.csv", samples.y_test, delimiter=",")
+        np.savetxt(
+            f"{config.get('path')}/{config.get('ID')}/y_test.csv",
+            samples.y_test,
+            delimiter=",",
+        )
         # np.savetxt(f"{config.get('path')}/{config.get('ID')}/X_test.csv", samples.X_test, delimiter=",")
     else:
         # assume data is 2d

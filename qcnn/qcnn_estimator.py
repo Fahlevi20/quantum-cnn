@@ -233,9 +233,9 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             # TODO maybe named tuple is better here
             circ_name = layer_defintion[0]
             pool_name = layer_defintion[1]
-            wire_pattern = layer_defintion[2]
+            wire_pattern_args = layer_defintion[2]
             wire_combos = get_wire_combos(
-                wire_pattern[0], wire_pattern[1], wire_pattern[2]
+                **wire_pattern_args
             )
 
             layer_dict = {}

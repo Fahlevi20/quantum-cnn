@@ -1,11 +1,11 @@
 {
-    "ID": 112,
+    "ID": 152,
     "path": "/home/matt/dev/projects/quantum-cnn/experiments",
     "data": {
         "target_pairs": [
             [
-                "classical",
-                "country"
+                "rock",
+                "reggae"
             ]
         ],
         "target_column": "label",
@@ -21,17 +21,8 @@
             "Angle": {
                 "scaler": {
                     "method": {
-                        "standard": {},
                         "minmax": {
                             "feature_range": [
-                                [
-                                    0,
-                                    1
-                                ],
-                                [
-                                    -1,
-                                    1
-                                ],
                                 [
                                     0,
                                     1.5707963267948966
@@ -42,103 +33,67 @@
                 },
                 "feature_selection": {
                     "method": {
-                        "pca": {
-                            "n_components": [
-                                8
-                            ]
-                        },
-                        "tree": {
-                            "max_features": [
-                                8
+                        "custom_mask": {
+                            "support_mask": [
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                true,
+                                false,
+                                true,
+                                false,
+                                true,
+                                false,
+                                true,
+                                false,
+                                true,
+                                false,
+                                true,
+                                false,
+                                false,
+                                false,
+                                true,
+                                false,
+                                false,
+                                false,
+                                false,
+                                true,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false
                             ],
-                            "n_estimators": [
-                                50
-                            ]
-                        }
-                    }
-                },
-                "ignore": false
-            },
-            "IQP": {
-                "scaler": {
-                    "method": {
-                        "standard": {},
-                        "minmax": {
-                            "feature_range": [
-                                [
-                                    0,
-                                    1
-                                ],
-                                [
-                                    -1,
-                                    1
-                                ],
-                                [
-                                    0,
-                                    1.5707963267948966
-                                ]
-                            ]
-                        }
-                    }
-                },
-                "feature_selection": {
-                    "method": {
-                        "pca": {
-                            "n_components": [
-                                8
-                            ]
-                        },
-                        "tree": {
-                            "max_features": [
-                                8
-                            ],
-                            "n_estimators": [
-                                50
-                            ]
-                        }
-                    }
-                },
-                "kwargs": {
-                    "depth": 10
-                },
-                "ignore": false
-            },
-            "Amplitude": {
-                "scaler": {
-                    "method": {
-                        "standard": {},
-                        "minmax": {
-                            "feature_range": [
-                                [
-                                    0,
-                                    1
-                                ],
-                                [
-                                    -1,
-                                    1
-                                ],
-                                [
-                                    0,
-                                    1.5707963267948966
-                                ]
-                            ]
-                        }
-                    }
-                },
-                "feature_selection": {
-                    "method": {
-                        "pca": {
-                            "n_components": [
-                                8
-                            ]
-                        },
-                        "tree": {
-                            "max_features": [
-                                8
-                            ],
-                            "n_estimators": [
-                                50
-                            ]
+                            "dont_permute": true
                         }
                     }
                 },
@@ -149,23 +104,7 @@
             "normal": {
                 "scaler": {
                     "method": {
-                        "standard": {},
-                        "minmax": {
-                            "feature_range": [
-                                [
-                                    0,
-                                    1
-                                ],
-                                [
-                                    -1,
-                                    1
-                                ],
-                                [
-                                    0,
-                                    1.5707963267948966
-                                ]
-                            ]
-                        }
+                        "standard": {}
                     }
                 },
                 "feature_selection": {
@@ -185,7 +124,7 @@
                         }
                     }
                 },
-                "ignore": true
+                "ignore": false
             },
             "other": {
                 "scaler": {
@@ -211,78 +150,23 @@
                 "pooling_list": [
                     "psatz1"
                 ],
-                "custom_structures": {
-                    "custom_0": {
-                        "c_1": [
-                            0,
-                            "c_1",
-                            "U_5"
-                        ],
-                        "p_1": [
-                            1,
-                            "p_1",
-                            "psatz1"
-                        ],
-                        "c_2": [
-                            2,
-                            "c_2",
-                            "U_SU4"
-                        ],
-                        "p_2": [
-                            3,
-                            "p_2",
-                            "psatz1"
-                        ],
-                        "c_3": [
-                            4,
-                            "c_3",
-                            "U_6"
-                        ],
-                        "p_3": [
-                            5,
-                            "p_3",
-                            "psatz1"
-                        ]
-                    },
-                    "custom_1": {
-                        "c_1": [
-                            0,
-                            "c_1",
-                            "U_5"
-                        ],
-                        "p_1": [
-                            1,
-                            "p_1",
-                            "psatz1"
-                        ],
-                        "c_2": [
-                            2,
-                            "c_2",
-                            "U_SU4"
-                        ],
-                        "p_2": [
-                            3,
-                            "p_2",
-                            "psatz1"
-                        ],
-                        "c_3": [
-                            4,
-                            "c_3",
-                            "U_5"
-                        ],
-                        "p_3": [
-                            5,
-                            "p_3",
-                            "psatz1"
-                        ]
-                    }
-                },
+                "wire_pattern_list": [
+                    [
+                        8,
+                        1,
+                        "outside"
+                    ]
+                ],
+                "custom_structures": {},
                 "param_grid": {
                     "n_iter": [
-                        1
+                        100
+                    ],
+                    "batch_size": [
+                        25
                     ]
                 },
-                "ignore": false
+                "ignore": true
             }
         },
         "classical": {
@@ -317,15 +201,15 @@
                         10
                     ]
                 },
-                "ignore": true
+                "ignore": false
             },
             "cnn": {
                 "param_grid": {},
                 "ignore": true
             }
         },
-        "classification_type": "ova",
+        "classification_type": "binary",
         "cv_folds": 5
     },
-    "extra_info": "main"
+    "extra_info": "debug + classical test. svm on rock reggae"
 }
