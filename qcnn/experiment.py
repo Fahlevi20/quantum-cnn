@@ -1,14 +1,14 @@
 # %%
-from collections import namedtuple
 import os
 import time
+import uuid
 import itertools as it
 from typing import NamedTuple
 import numpy as np
+from collections import namedtuple
+
 from sklearn import feature_selection
-
 import tensorflow as tf
-
 import circuit_presets
 
 from quantum_models import train_quantum
@@ -23,6 +23,7 @@ from sklearn.model_selection import ParameterGrid
 Model_Configurations = namedtuple(
     "Model_Configurations",
     [
+        "model_id",
         "model_type",
         "algorithm",
         "classification_type",
@@ -62,8 +63,10 @@ def run_quantum_model(
     model_time = {}
 
     for circ_pool_combo in it.product(circuit_list, pooling_list, wire_pattern_list):
+        model_id = uuid.uuid4().hex
         # model name depends on circ_pool_combo which causes some redundancy in the code, i.e. it can be improved by deriving the name earlier
         model_configuration = Model_Configurations(
+            model_id=model_id,
             model_type=model_type,
             algorithm=algorithm,
             classification_type=classification_type,
@@ -75,11 +78,10 @@ def run_quantum_model(
             target_pair=target_pair,
             additional_structure=circ_pool_combo,
         )
-        model_name = "-".join([str(item) for item in model_configuration])
         if not (
             os.path.exists(
                 # Check to see if model was already built
-                f"{result_path}/{model_name}-confusion-matrix.csv"
+                f"{result_path}/{model_id}-confusion-matrix.csv"
             )
         ):
             t1 = time.time()
@@ -91,15 +93,17 @@ def run_quantum_model(
                 pipeline,
                 samples,
                 target_pair,
-                model_name=model_name,
+                model_id=model_id,
                 model_configuration=model_configuration,
             )
             t2 = time.time()
-            model_time[f"{model_name}"] = t2 - t1
+            model_time[f"{model_id}"] = t2 - t1
     for custom_structure in config["model"][model_type][algorithm].get(
         "custom_structures", []
     ):
+        model_id = uuid.uuid4().hex
         model_configuration = Model_Configurations(
+            model_id=model_id,
             model_type=model_type,
             algorithm=algorithm,
             classification_type=classification_type,
@@ -111,11 +115,10 @@ def run_quantum_model(
             target_pair=target_pair,
             additional_structure=custom_structure,
         )
-        model_name = "-".join([str(item) for item in model_configuration])
         if not (
             os.path.exists(
                 # Check to see if model was already built
-                f"{result_path}/{model_name}-confusion-matrix.csv"
+                f"{result_path}/{model_id}-confusion-matrix.csv"
             )
         ):
             qcnn_structure = config["model"][model_type][algorithm][
@@ -130,11 +133,11 @@ def run_quantum_model(
                 pipeline,
                 samples,
                 target_pair,
-                model_name=model_name,
+                model_id=model_id,
                 model_configuration=model_configuration,
             )
             t2 = time.time()
-            model_time[f"{model_name}"] = t2 - t1
+            model_time[f"{model_id}"] = t2 - t1
     return model_time
 
 
@@ -158,7 +161,9 @@ def run_classical_model(
     classification_type = config["model"].get("classification_type", None)
     model_time = {}
     if target_pair:
+        model_id = uuid.uuid4().hex
         model_configuration = Model_Configurations(
+            model_id=model_id,
             model_type=model_type,
             algorithm=algorithm,
             classification_type=classification_type,
@@ -171,7 +176,9 @@ def run_classical_model(
             additional_structure=None,
         )
     else:
+        model_id = uuid.uuid4().hex
         model_configuration = Model_Configurations(
+            model_id=model_id,
             model_type=model_type,
             algorithm=algorithm,
             classification_type=classification_type,
@@ -183,7 +190,7 @@ def run_classical_model(
             target_pair=None,
             additional_structure=None,
         )
-    model_name = "-".join([str(item) for item in model_configuration])
+
     t1 = time.time()
     # Train and store results
     train_classical(
@@ -192,11 +199,11 @@ def run_classical_model(
         pipeline,
         samples,
         target_pair=target_pair,
-        model_name=model_name,
+        model_id=model_id,
         model_configuration=model_configuration,
     )
     t2 = time.time()
-    model_time[f"{model_name}"] = t2 - t1
+    model_time[f"{model_id}"] = t2 - t1
 
     return model_time
 
@@ -265,15 +272,24 @@ def run_experiment(config, samples):
                             [f"{k}={v}" for k, v in scaler_param.items()]
                         )
                         # TODO if value is too long i.e. list > something then name differently
-                        if sum([len(selection_param[x]) for x in selection_param if isinstance(selection_param[x], list)]) > 1:
+                        if (
+                            sum(
+                                [
+                                    len(selection_param[x])
+                                    for x in selection_param
+                                    if isinstance(selection_param[x], list)
+                                ]
+                            )
+                            > 1
+                        ):
                             selection_param_str = "_".join(
                                 [f"{k}={v[0]}" for k, v in selection_param.items()]
                             )
-                        else: 
+                        else:
                             selection_param_str = "_".join(
                                 [f"{k}={v}" for k, v in selection_param.items()]
                             )
-                       
+
                         for algorithm in config["model"].get(model_type):
                             # quantum algo like qcnn or some other quantum model
                             if (

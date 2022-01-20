@@ -16,7 +16,7 @@ from preprocessing import apply_preprocessing
 
 def store_results(
     config,
-    model_name,
+    model_id,
     clf,
     y_hat,
     samples_tfd,
@@ -35,12 +35,12 @@ def store_results(
     #     json.dump(config, f, indent=4)
 
     # print(f"Storing resuts to:\n {result_path}")
-    pd.DataFrame(y_hat).to_csv(f"{result_path}/{model_name}-yhat.csv")
-    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_name}-confusion_matrix.csv")
-    dump(samples_tfd, f"{result_path}/{model_name}-samples_tfd.joblib")
-    dump(clf, f"{result_path}/{model_name}-clf_results.joblib")
+    pd.DataFrame(y_hat).to_csv(f"{result_path}/{model_id}-yhat.csv")
+    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_id}-confusion_matrix.csv")
+    dump(samples_tfd, f"{result_path}/{model_id}-samples_tfd.joblib")
+    dump(clf, f"{result_path}/{model_id}-clf_results.joblib")
     if model_configuration:
-        dump(model_configuration, f"{result_path}/{model_name}-model_configuration.joblib")
+        dump(model_configuration, f"{result_path}/{model_id}-model_configuration.joblib")
 
 
 def train_quantum(
@@ -51,7 +51,7 @@ def train_quantum(
     pipeline,
     samples,
     target_pair=None,
-    model_name="dummy",
+    model_id="dummy",
     model_configuration=None
 ):
     """ """
@@ -75,7 +75,7 @@ def train_quantum(
         classification_type,
         data_type,
         target_pair,
-        model_name=model_name,
+        model_id=model_id,
         result_path=result_path,
     )
 
@@ -113,7 +113,7 @@ def train_quantum(
     if save_results:
         store_results(
             config,
-            model_name,
+            model_id,
             clf,
             y_hat,
             samples_tfd,

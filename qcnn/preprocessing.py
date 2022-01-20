@@ -181,7 +181,7 @@ def apply_preprocessing(
     classification_type,
     data_type,
     target_pair=None,
-    model_name="dummy",
+    model_id="dummy",
     result_path=None,
 ):
 
@@ -280,5 +280,5 @@ def apply_preprocessing(
     if result_path:
         if not os.path.exists(result_path):
             os.makedirs(result_path)
-        dump(pipeline, f"{result_path}/{model_name}-pipeline.joblib")
+        dump(pipeline, f"{result_path}/{model_id}-pipeline.joblib")
     return samples_tfd

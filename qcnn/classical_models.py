@@ -32,7 +32,7 @@ def filter_levels(data, feature, levels):
 
 def store_results(
     config,
-    model_name,
+    model_id,
     clf,
     y_hat,
     samples_tfd,
@@ -51,16 +51,16 @@ def store_results(
     #     json.dump(config, f, indent=4)
 
     # print(f"Storing resuts to:\n {result_path}")
-    pd.DataFrame(y_hat).to_csv(f"{result_path}/{model_name}-yhat.csv")
-    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_name}-confusion_matrix.csv")
-    dump(samples_tfd, f"{result_path}/{model_name}-samples_tfd.joblib")
-    dump(clf, f"{result_path}/{model_name}-clf_results.joblib")
+    pd.DataFrame(y_hat).to_csv(f"{result_path}/{model_id}-yhat.csv")
+    pd.DataFrame(cf_matrix).to_csv(f"{result_path}/{model_id}-confusion_matrix.csv")
+    dump(samples_tfd, f"{result_path}/{model_id}-samples_tfd.joblib")
+    dump(clf, f"{result_path}/{model_id}-clf_results.joblib")
     if model_configuration:
-        dump(model_configuration, f"{result_path}/{model_name}-model_configuration.joblib")  
+        dump(model_configuration, f"{result_path}/{model_id}-model_configuration.joblib")  
     
 
 
-def train_classical(config, algorithm, pipeline, samples, target_pair=None, model_name="dummy", model_configuration=None):
+def train_classical(config, algorithm, pipeline, samples, target_pair=None, model_id="dummy", model_configuration=None):
     """[summary]
 
     Args:
@@ -69,7 +69,7 @@ def train_classical(config, algorithm, pipeline, samples, target_pair=None, mode
         raw ([type]): [description]
         data_utility ([type]): [description]
         config ([type]): [description]
-        model_name (str, optional): [description]. Defaults to "dummy".
+        model_id (str, optional): [description]. Defaults to "dummy".
     """
     model_type = "classical"
     save_results = False if config.get("path", None) is None else True
@@ -92,7 +92,7 @@ def train_classical(config, algorithm, pipeline, samples, target_pair=None, mode
 
     # Preprocessing
     result_path = f"{config.get('path')}/{config.get('ID')}"
-    samples_tfd = apply_preprocessing(samples, pipeline, classification_type, data_type, target_pair, model_name=model_name, result_path=result_path)
+    samples_tfd = apply_preprocessing(samples, pipeline, classification_type, data_type, target_pair, model_id=model_id, result_path=result_path)
 
     if algorithm == "svm":
         model = svm.SVC()
@@ -147,7 +147,7 @@ def train_classical(config, algorithm, pipeline, samples, target_pair=None, mode
     if save_results:
         store_results(
             config,
-            model_name,
+            model_id,
             clf,
             y_hat,
             samples_tfd,
