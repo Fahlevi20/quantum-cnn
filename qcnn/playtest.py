@@ -324,7 +324,6 @@ exp:54=all target pairs, default rest 100 iterations
 exp:90,91,92 encodings vary depth   20211127
 exp:93=encodings vary scale         20211127
 exp:94=1000 encodings iterations    20211127
-exp:98,99=encodings vary scale      20211127
 exp:97,100=ova encodings            20211127
 exp:101=encodings 1000 iterations, vary circuits, 2 genres,
 exp:102=ova
@@ -566,52 +565,6 @@ def get_wire_combos_graph(
 # %%
 
 # %%
-path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
-exp_id = 119
-config = get_experiment_config(path_experiments, exp_id)
-
-
-path_single_experiment = f"{path_experiments}/{exp_id}"
-model_names = get_model_names(path_single_experiment)
-
-Results = namedtuple(
-    "Results",
-    [
-        "model_name",
-        "y_test_hat",
-        "clf",
-        "model_configuration",
-        "samples_tfd",
-        "pipeline",
-    ],
-)
-result_list = []
-for model_name in model_names:
-    y_test_hat = pd.read_csv(
-        f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0
-    )
-    clf = load(f"{path_single_experiment}/{model_name}-clf_results.joblib")
-    model_configuration = load(
-        f"{path_single_experiment}/{model_name}-model_configuration.joblib"
-    )
-    samples_tfd = load(f"{path_single_experiment}/{model_name}-samples_tfd.joblib")
-    pipeline = load(f"{path_single_experiment}/{model_name}-pipeline.joblib")
-    result_list = result_list + [
-        Results(
-            model_name,
-            y_test_hat=y_test_hat,
-            clf=clf,
-            model_configuration=model_configuration,
-            samples_tfd=samples_tfd,
-            pipeline=pipeline,
-        )
-    ]
-# from qcnn_estimator import Qcnn_Classifier
-# model = Qcnn_Classifier(
-#             layer_defintion=qcnn_structure_permutation,
-#             encoding_type=embedding_type,
-#             encoding_kwargs=encoding_kwargs,
-#         )
 # %%
 from circuit_presets import get_wire_combos
 from collections import namedtuple
@@ -636,7 +589,7 @@ wire_combos = {
 }
 get_circuit_diagram(wire_combos, n_qbits=8)
 # %%
-exp_id = 122
+exp_id = 201
 result_data = gather_results_118_135(exp_id, path_experiments=path_experiments)
 # display(get_experiment_config(path_experiments, exp_id))
 pd.set_option("display.max_rows", 100)
@@ -650,17 +603,100 @@ from reporting_functions import get_model_result_list
 import seaborn as sns
 
 result_list = get_model_result_list(get_experiment_config(path_experiments, exp_id))
+
+# [detached from 60640.pts-0.hep1]
+# %%
+import matplotlib.pyplot as plt
+from matplotlib import ticker
+
+figsize = (10, 10)
+groupby = ["wire_config_str", "selection_method"]
+metric = "accuracy"
+filter_wire = lambda data, key, val: data.apply(
+    lambda row: row["additional_structure"][2][key] == val, axis=1
+)
+filter_struc = lambda data, ind, val: data.apply(
+    lambda row: row["additional_structure"][ind] == val, axis=1
+)
+filter_col_val = lambda data, col, val: data.apply(lambda row: row[col] == val, axis=1)
+U_5_rockreg = result_data[
+    filter_col_val(result_data, "target_pair_str", "rock_reggae")
+].copy()
+U_5_classpop = result_data[
+    filter_col_val(result_data, "target_pair_str", "classical_pop")
+].copy()
+# U_SU4_rockreg = result_data[filter_col_val(result_data, "target_pair_str", "rock_reggae") & filter_struc(result_data,0,"U_SU4")].copy()
+# U_SU4_classpop = result_data[filter_col_val(result_data, "target_pair_str", "classical_pop") & filter_struc(result_data,0,"U_SU4")].copy()
+plot_U_5_rockreg = get_line_plot_data(U_5_rockreg, groupby, metric)
+plot_U_5_classpop = get_line_plot_data(U_5_classpop, groupby, metric)
+# plot_U_SU4_rockreg=get_line_plot_data(U_SU4_rockreg, groupby, metric)
+# plot_U_SU4_classpop=get_line_plot_data(U_SU4_classpop, groupby, metric)
+
+plot_data = plot_U_5_rockreg
+# plot_data["wire_config_str"]=plot_data.apply(lambda row: "_".join(row["wire_config_str"].split("_")[3:]), axis=1)
+plot_data.index = plot_data["wire_config_str"]
+
+generic_plot_201(
+    plot_data,
+    "wire_config_str",
+    "Accuracy",
+    "selection_method",
+    title="U_5, Rock vs Reggae",
+    x_label="Wire Pattern",
+)
+
+plot_data = plot_U_5_classpop
+# plot_data["wire_config_str"]=plot_data.apply(lambda row: "_".join(row["wire_config_str"].split("_")[3:]), axis=1)
+plot_data.index = plot_U_5_classpop["wire_config_str"]
+
+generic_plot_201(
+    plot_data,
+    "wire_config_str",
+    "Accuracy",
+    "selection_method",
+    title="U_5, Classical vs Pop",
+    x_label="Wire Pattern",
+)
+
 # %%
 
-ind = 0
-val="U_5"
-filter_struc = lambda data, ind, val: data.apply(lambda row: row["additional_structure"][ind]==val, axis=1)
-filter_col_val = lambda data, col, val: data.apply(lambda row: row[col]==val, axis=1)
+
+def generic_plot_201(
+    plot_data,
+    x,
+    y,
+    hue,
+    figsize=(10, 10),
+    title="U_5, Rock vs Reggae",
+    x_label="Wire Pattern",
+):
+    markers = {"pca": "P", "tree": "v"}
+    with sns.axes_style("whitegrid"):
+        fig, axes = plt.subplots(1, 1, figsize=figsize, sharey=True)
+        axes.set_title(title)
+        axes.set_xlabel(x_label)
+        axes = sns.scatterplot(
+            data=pd.melt(
+                plot_data,
+                x,
+                value_name=y,
+                var_name=hue,
+            ),
+            x=x,
+            y=y,
+            hue=hue,
+            markers=markers,
+            style=hue,
+            # palette=["#4c72b0","#dd8452"],
+            s=100,
+            # marker="o",
+        )
+
+        plt.xticks(rotation=90)
+        axes.set(ylim=(0, 1))
+        # axes.set_aspect('equal', adjustable='box')
+        # 24 is the number of wire patterns, this helps make the plot square
+        axes.yaxis.set_major_locator(ticker.MultipleLocator(1 / plot_data.shape[0]))
 
 
-
-
-
-# %%
-plot_122_scatter(result_data)
 # %%

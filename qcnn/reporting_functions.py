@@ -880,6 +880,8 @@ def gather_results_118_135(
             "target_pair": [],
             "additional_structure": [],
             "additional_structure_str": [],
+            "wire_config":[],
+            "wire_config_str":[],
             "target_pair_str": [],
             "mean_test_score": [],
             "std_test_score": [],
@@ -909,6 +911,12 @@ def gather_results_118_135(
         tmp_result[
             "additional_structure_str"
         ] = f"{model_configuration.additional_structure[0]}_{model_configuration.additional_structure[1]}_{model_configuration.additional_structure[2]}"
+        tmp_result[
+            "wire_config"
+        ] = model_configuration.additional_structure[2]
+        tmp_result[
+            "wire_config_str"
+        ] = '-'.join([str(item) for item in model_configuration.additional_structure[2].values()])
         tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][
             clf.best_index_
         ]
@@ -1046,6 +1054,45 @@ def plot_122_scatter(result_data, figsize = (10, 10)):
         #axes.set_aspect('equal', adjustable='box')
         # 24 is the number of wire patterns, this helps make the plot square
         axes.yaxis.set_major_locator(ticker.MultipleLocator(1/24))
+
+
+
+def generic_plot_201(
+    plot_data,
+    x,
+    y,
+    hue,
+    figsize=(10, 10),
+    title="U_5, Rock vs Reggae",
+    x_label="Wire Pattern",
+):
+    markers = {"pca": "P", "tree": "v"}
+    with sns.axes_style("whitegrid"):
+        fig, axes = plt.subplots(1, 1, figsize=figsize, sharey=True)
+        axes.set_title(title)
+        axes.set_xlabel(x_label)
+        axes = sns.scatterplot(
+            data=pd.melt(
+                plot_data,
+                x,
+                value_name=y,
+                var_name=hue,
+            ),
+            x=x,
+            y=y,
+            hue=hue,
+            markers=markers,
+            style=hue,
+            # palette=["#4c72b0","#dd8452"],
+            s=100,
+            # marker="o",
+        )
+
+        plt.xticks(rotation=90)
+        axes.set(ylim=(0, 1))
+        # axes.set_aspect('equal', adjustable='box')
+        # 24 is the number of wire patterns, this helps make the plot square
+        axes.yaxis.set_major_locator(ticker.MultipleLocator(1 / plot_data.shape[0]))
 
 # %%
 
