@@ -593,11 +593,73 @@ exp_id = 201
 result_data = gather_results_118_135(exp_id, path_experiments=path_experiments)
 # display(get_experiment_config(path_experiments, exp_id))
 pd.set_option("display.max_rows", 100)
-get_result_table(
+result_table = get_result_table(
     result_data,
     ["algorithm", "additional_structure_str", "selection_method", "target_pair_str"],
     "accuracy",
 )
+# %%
+groupby = ["algorithm", "additional_structure_str", "selection_method"]
+top_5_models = (
+    result_table["algorithm Average"].sort_values(ascending=False).head().index
+)
+filter_col_val = lambda data, col, val: data.apply(lambda row: row[col] == val, axis=1)
+
+top_5_ids = [
+    tuple(
+        result_data[
+            filter_col_val(result_data, "algorithm", model_config[0])
+            & filter_col_val(result_data, "additional_structure_str", model_config[1])
+            & filter_col_val(result_data, "selection_method", model_config[2])
+        ]["model_name"]
+    )
+    for model_config in top_5_models
+]
+# %%
+from reporting_functions import get_model_result_list
+
+result_list = get_model_result_list(get_experiment_config(path_experiments, exp_id))
+# %%
+X_test = pd.read_csv(f"{path_experiments}/{exp_id}/X_test.csv", index_col=0)
+columns = X_test.columns
+tmp_model_ids = top_5_ids[3]
+tmp_results = [result for result in result_list if result.model_name in tmp_model_ids]
+tmp_results[0].model_configuration
+model_result = tmp_results[1]
+
+plot_binary_tree(tmp_results[0], columns)
+plot_binary_tree(tmp_results[1], columns)
+# %%
+
+
+import seaborn as sns
+sns.set_theme(style="ticks")
+
+df = sns.load_dataset("penguins")
+sns.pairplot(df, hue="species")
+# %%
+def plot_binary_pair(model_result, X_test_columns):
+    selection_method = model_result.model_configuration.selection_method
+    target_pair = model_result.model_configuration.target_pair
+    support_mask = model_result.pipeline.named_steps[
+        selection_method
+    ]._get_support_mask()
+    feature_names = X_test_columns[support_mask]
+    feature_names = list(feature_names) + ["genre"]
+    plot_data = pd.DataFrame(
+        np.c_[model_result.samples_tfd.X_test, model_result.samples_tfd.y_test],
+        columns=feature_names,
+    )
+    plot_data["genre"] = plot_data.apply(
+        lambda row: target_pair[1] if row["genre"] == 1 else target_pair[0], axis=1
+    )
+    with sns.axes_style("whitegrid"):
+        sns.pairplot(plot_data, hue="genre")
+
+    return feature_names
+
+
+# target_levels = pipe_Xy_df[data_utility.target].unique()
 # %%
 from reporting_functions import get_model_result_list
 import seaborn as sns
@@ -609,94 +671,71 @@ result_list = get_model_result_list(get_experiment_config(path_experiments, exp_
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 
-figsize = (10, 10)
-groupby = ["wire_config_str", "selection_method"]
-metric = "accuracy"
-filter_wire = lambda data, key, val: data.apply(
-    lambda row: row["additional_structure"][2][key] == val, axis=1
-)
-filter_struc = lambda data, ind, val: data.apply(
-    lambda row: row["additional_structure"][ind] == val, axis=1
-)
-filter_col_val = lambda data, col, val: data.apply(lambda row: row[col] == val, axis=1)
-U_5_rockreg = result_data[
-    filter_col_val(result_data, "target_pair_str", "rock_reggae")
-].copy()
-U_5_classpop = result_data[
-    filter_col_val(result_data, "target_pair_str", "classical_pop")
-].copy()
-# U_SU4_rockreg = result_data[filter_col_val(result_data, "target_pair_str", "rock_reggae") & filter_struc(result_data,0,"U_SU4")].copy()
-# U_SU4_classpop = result_data[filter_col_val(result_data, "target_pair_str", "classical_pop") & filter_struc(result_data,0,"U_SU4")].copy()
-plot_U_5_rockreg = get_line_plot_data(U_5_rockreg, groupby, metric)
-plot_U_5_classpop = get_line_plot_data(U_5_classpop, groupby, metric)
-# plot_U_SU4_rockreg=get_line_plot_data(U_SU4_rockreg, groupby, metric)
-# plot_U_SU4_classpop=get_line_plot_data(U_SU4_classpop, groupby, metric)
-
-plot_data = plot_U_5_rockreg
-# plot_data["wire_config_str"]=plot_data.apply(lambda row: "_".join(row["wire_config_str"].split("_")[3:]), axis=1)
-plot_data.index = plot_data["wire_config_str"]
-
-generic_plot_201(
-    plot_data,
-    "wire_config_str",
-    "Accuracy",
-    "selection_method",
-    title="U_5, Rock vs Reggae",
-    x_label="Wire Pattern",
-)
-
-plot_data = plot_U_5_classpop
-# plot_data["wire_config_str"]=plot_data.apply(lambda row: "_".join(row["wire_config_str"].split("_")[3:]), axis=1)
-plot_data.index = plot_U_5_classpop["wire_config_str"]
-
-generic_plot_201(
-    plot_data,
-    "wire_config_str",
-    "Accuracy",
-    "selection_method",
-    title="U_5, Classical vs Pop",
-    x_label="Wire Pattern",
-)
 
 # %%
-
-
-def generic_plot_201(
-    plot_data,
-    x,
-    y,
-    hue,
-    figsize=(10, 10),
-    title="U_5, Rock vs Reggae",
-    x_label="Wire Pattern",
-):
-    markers = {"pca": "P", "tree": "v"}
+def plot_var_exp(pipeline, selection_method, figsize=(10, 10)):
     with sns.axes_style("whitegrid"):
         fig, axes = plt.subplots(1, 1, figsize=figsize, sharey=True)
-        axes.set_title(title)
-        axes.set_xlabel(x_label)
-        axes = sns.scatterplot(
-            data=pd.melt(
-                plot_data,
-                x,
-                value_name=y,
-                var_name=hue,
-            ),
-            x=x,
-            y=y,
-            hue=hue,
-            markers=markers,
-            style=hue,
-            # palette=["#4c72b0","#dd8452"],
-            s=100,
-            # marker="o",
-        )
+        var_exp = pipeline.named_steps[selection_method].explained_variance_ratio_
+        cum_var_exp = var_exp.cumsum()
 
-        plt.xticks(rotation=90)
-        axes.set(ylim=(0, 1))
-        # axes.set_aspect('equal', adjustable='box')
-        # 24 is the number of wire patterns, this helps make the plot square
-        axes.yaxis.set_major_locator(ticker.MultipleLocator(1 / plot_data.shape[0]))
+        tmp_ax = ax.bar(
+            range(len(var_exp)),
+            var_exp,
+            alpha=0.5,
+            align="center",
+            label="individual explained variance",
+        )
+        tmp_ax = ax.step(
+            range(len(var_exp)),
+            cum_var_exp,
+            where="mid",
+            label="cumulative explained variance",
+        )
+        a = ax.set_ylabel("Explained variance ratio")
+        b = ax.set_xlabel("Principal components")
+        # f#ig.legend(loc="best")
+
+
+def plot_top2d(fig, ax, pipe_Xy_df, config, feature_names, data_utility):
+    scaler_method = config["scaler"].get("method")
+    scaler_params = config["scaler"].get(f"{scaler_method}_params")
+    selection_method = config["feature_selection"].get("method")
+    selection_params = config["feature_selection"].get(f"{selection_method}_params")
+    # To include combination in title
+    # selection_param_str = "-".join([f"{k}={v}" for k, v in selection_params.items()])
+    # scaler_param_str = "-".join([f"{k}={v}" for k, v in scaler_params.items()])
+    # # fig = plt.figure(figsize=figsize)
+    # # ax = plt.axes()
+    # ax.set_title(
+    #     f"{selection_method}-{scaler_method}-{selection_param_str}-{scaler_param_str}"
+    # )
+
+    target_levels = pipe_Xy_df[data_utility.target].unique()
+    colors = [
+        "tab:blue",
+        "tab:orange",
+        "tab:green",
+        "tab:red",
+        "tab:purple",
+        "tab:brown",
+        "tab:pink",
+        "tab:gray",
+        "tab:olive",
+        "tab:cyan",
+    ]
+    for target_level, color in zip(target_levels, colors):
+        ind = pipe_Xy_df[data_utility.target] == target_level
+        tmp_ax = ax.scatter(
+            pipe_Xy_df.loc[ind, feature_names[0]],
+            pipe_Xy_df.loc[ind, feature_names[1]],
+            c=color,
+            s=50,
+        )
+    a = ax.set_xlabel(feature_names[0])
+    b = ax.set_ylabel(feature_names[1])
+    fig.legend(target_levels, loc="upper right", fancybox=True)
 
 
 # %%
+# (qcnn, U_5_psatz1_{'n_wires': 8, 'c_step': 1, 'pool_pattern': 'right', 'p_step': 0, 'wire_to_cut': 0}, tree)	0.976744	0.812500	0.894622

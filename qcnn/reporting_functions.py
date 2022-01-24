@@ -1095,6 +1095,74 @@ def generic_plot_201(
         axes.yaxis.set_major_locator(ticker.MultipleLocator(1 / plot_data.shape[0]))
 
 # %%
+def plot_binary_pca_model(model_result, figsize = (16,8)):
+    selection_method = model_result.model_configuration.selection_method
+    target_pair = model_result.model_configuration.target_pair
+    var_exp = model_result.pipeline.named_steps[selection_method].explained_variance_ratio_
+    cum_var_exp = var_exp.cumsum()
+
+    feature_names = [
+    f"{selection_method}-{i}" for i in range(model_result.samples_tfd.X_test.shape[1])
+    ] + ["genre"]
+    plot_data = pd.DataFrame(
+        np.c_[model_result.samples_tfd.X_test, model_result.samples_tfd.y_test],
+        columns=feature_names,
+    )
+
+    plot_data["genre"]=plot_data.apply(lambda row: target_pair[1] if row["genre"] == 1 else target_pair[0], axis=1)
+    with sns.axes_style("whitegrid"):
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+        
+        axes[0].set_title("Principal Component Analysis - First 2 components")
+        sns.scatterplot(
+            ax= axes[0],
+            data=plot_data,
+            x="pca-0",
+            y="pca-1",
+            hue="genre",
+            # markers=markers,
+            # style="selection_method",
+            # palette=["#4c72b0","#dd8452"],
+            s=100,
+            # marker="o",
+        )
+        axes[1].set_title("Cumulative Explained Variance")
+        axes[1].bar(
+                range(len(var_exp)),
+                var_exp,
+                alpha=0.5,
+                align="center",
+                label="individual explained variance",
+            )
+        axes[1].step(
+                range(len(var_exp)),
+                cum_var_exp,
+                where="mid",
+                label="cumulative explained variance",
+            )
+        axes[1].set_ylabel("Explained variance ratio")
+        axes[1].set_xlabel("Principal components")
+
+def plot_binary_pair(model_result, X_test_columns):
+    selection_method = model_result.model_configuration.selection_method
+    target_pair = model_result.model_configuration.target_pair
+    support_mask = model_result.pipeline.named_steps[
+        selection_method
+    ]._get_support_mask()
+    feature_names = X_test_columns[support_mask]
+    feature_names = list(feature_names) + ["genre"]
+    plot_data = pd.DataFrame(
+        np.c_[model_result.samples_tfd.X_test, model_result.samples_tfd.y_test],
+        columns=feature_names,
+    )
+    plot_data["genre"] = plot_data.apply(
+        lambda row: target_pair[1] if row["genre"] == 1 else target_pair[0], axis=1
+    )
+    sns.set_theme(style="ticks")
+    with sns.axes_style("whitegrid"):
+        sns.pairplot(plot_data, hue="genre")
+
+    return feature_names
 
 # %%
 def get_file_content(file_path):
