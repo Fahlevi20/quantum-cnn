@@ -438,128 +438,13 @@ plot_data_1[{"pca", "tree"}]
 # grouped_data_unstack = grouped_data.copy().unstack(level=-1)
 # grouped_data_unstack[grouped_data_unstack.index.name] = grouped_data_unstack.index
 
-# %%
-from math import log2
-import networkx as nx
-import matplotlib.pyplot as plt
-
-n_wires = 8
-c_step = 1
-p_step = 0
-pool_pattern = "eo_even"
-wire_to_cut = 0
-
-if pool_pattern == "left":
-    # 0 1 2 3 4 5 6 7
-    # x x x x
-    pool_filter = lambda arr: arr[0 : len(arr) // 2 : 1]  # Left
-elif pool_pattern == "right":
-    # 0 1 2 3 4 5 6 7
-    #         x x x x
-    pool_filter = lambda arr: arr[len(arr) : len(arr) // 2 - 1 : -1]  # Right
-elif pool_pattern == "eo_even":
-    # 0 1 2 3 4 5 6 7
-    # x   x   x   x
-    pool_filter = lambda arr: arr[0::2]  # eo even
-elif pool_pattern == "eo_odd":
-    # 0 1 2 3 4 5 6 7
-    #   x   x   x   x
-    pool_filter = lambda arr: arr[1::2]  # eo odd
-elif pool_pattern == "inside":
-    # 0 1 2 3 4 5 6 7
-    #     x x x x
-    pool_filter = lambda arr: arr[
-        len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1
-    ]  # inside
-elif pool_pattern == "outside":
-    # 0 1 2 3 4 5 6 7
-    # x x         x x
-    pool_filter = lambda arr: [
-        item
-        for item in arr
-        if not (
-            item
-            in arr[len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1]
-        )
-    ]  # outside
-wire_combos = {}
-wires = range(n_wires)
-for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, -1)):
-    conv_size = 2 ** i
-    circle_n = lambda x: x % conv_size
-    wire_combos[f"c_{layer_ind+1}"] = [
-        (wires[x], wires[circle_n(x + c_step)]) for x in range(conv_size)
-    ]
-    if (i == 1) and (len(wire_combos[f"c_{layer_ind+1}"]) > 1):
-        wire_combos[f"c_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
-
-    tmp_pool_selection = pool_filter(wire_combos[f"c_{layer_ind+1}"])
-    cut_wires = [x[wire_to_cut] for x in tmp_pool_selection]
-    wires = [wire for wire in wires if not (wire in cut_wires)]
-    p_circle_n = lambda x: x % len(cut_wires)
-    wire_combos[f"p_{layer_ind+1}"] = [
-        (cut_wires[p_circle_n(x + p_step)], wires[x]) for x in range(len(cut_wires))
-    ]
-    # wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
-    if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
-        wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
-    # for next iteration
-    # cut_wires = [x[wire_to_cut] for x in wire_combos[f"p_{layer_ind+1}"]]
-    # wires = [wire for wire in wires if not (wire in cut_wires)]
-display(wire_combos)
-
 
 # %%
 # graph
 # TODO find way to show qbit is removed in make node small or something
 # https://towardsdatascience.com/customizing-networkx-graphs-f80b4e69bedf
 import networkx as nx
-import matplotlib.pyplot as plt
-
-
-def get_wire_combos_graph(
-    wire_combos, n_qbits=8, conv_color="#0096ff", pool_color="#ff7e79"
-):
-
-    # labels = nx.draw_networkx_labels(graph, pos=pos)
-    # nodes=nx.draw_networkx_nodes(graph,pos=pos, node_color="#ffffff")
-    node_sizes = [1000 for ind in range(n_qbits)]
-    n_graphs = {}
-    for layer in wire_combos.keys():
-
-        graph = nx.DiGraph()
-        graph.add_nodes_from(range(n_qbits))
-        graph.add_edges_from(wire_combos[layer])
-
-        # Change order around a circle, this way you start at x=0 then move left around
-        theta_0 = 2 / n_qbits
-        theta_step = 1 / n_qbits
-        pos = {
-            ind: np.array(
-                [
-                    np.cos(2 * np.pi * (theta_0 + ind * theta_step)),
-                    np.sin(2 * np.pi * (theta_0 + ind * theta_step)),
-                ]
-            )
-            for ind in range(n_qbits)
-        }
-        if layer.split("_")[0].upper() == "P":
-            node_color = pool_color
-            # in the get_wire_combos function we add cut_wires at index 0, if that changes
-            # this should update TODO
-            cut_wires = [x[0] for x in wire_combos[layer]]
-            node_sizes = [
-                100 if (ind in cut_wires) else node_size
-                for ind, node_size in zip(range(n_qbits), node_sizes)
-            ]
-        else:
-            node_color = conv_color
-
-        # cut_wires = [x[wire_to_cut] for x in wire_combos[layer]]
-        # node_sizes = [100 if (ind in cut_wires) else 1000 for ind in range(n_qbits)]
-        n_graphs[layer] = (graph, pos, node_sizes, node_color)
-
-    return n_graphs
+import matplotlib.pyplot as pl
 
 
 # %%
@@ -569,35 +454,52 @@ def get_wire_combos_graph(
 from circuit_presets import get_wire_combos
 from collections import namedtuple
 
-n_wires = 8
-c_step = 1
-pool_pattern = "eo_even"
-p_step = 0
-wire_to_cut = 0
-
-default_wire_combos = get_wire_combos(8, 1, "eo_even", p_step=0, wire_to_cut=0)
-
-default_wire_combos.get(result_list[0].clf.best_estimator_.layer_dict_.keys())
 # %%
-result = result_list[0]
-layers = result_list[0].clf.best_estimator_.layer_dict_.keys()
+from reporting_functions import get_model_result_list
 
-wire_combos = {
-    layer: wire_pattern
-    for layer, wire_pattern in default_wire_combos.items()
-    if layer in layers
-}
-get_circuit_diagram(wire_combos, n_qbits=8)
-# %%
-exp_id = 201
+exp_id = 203
 result_data = gather_results_118_135(exp_id, path_experiments=path_experiments)
 # display(get_experiment_config(path_experiments, exp_id))
-pd.set_option("display.max_rows", 100)
-result_table = get_result_table(
-    result_data,
-    ["algorithm", "additional_structure_str", "selection_method", "target_pair_str"],
-    "accuracy",
+# pd.set_option("display.max_rows", 100)
+# result_table = get_result_table(
+#     result_data,
+#     ["algorithm", "additional_structure_str", "selection_method", "target_pair_str"],
+#     "accuracy",
+# )
+# result_list = get_model_result_list(get_experiment_config(path_experiments, exp_id))
+# %%
+pair_data = get_result_table_target_pairs(
+    result_data, "algorithm", "target_pair_str", "accuracy"
 )
+grouped_data = result_data.groupby(["target_pair_str"])["accuracy"].max()
+grouped_data_df = grouped_data.to_frame()
+grouped_data_df["level_0"] = [item.split("_")[0] for item in grouped_data.index]
+grouped_data_df["level_1"] = [item.split("_")[1] for item in grouped_data.index]
+# %%
+import seaborn as sns
+figsize = (10, 10)
+pair_data = get_result_table_target_pairs(
+    result_data, "algorithm", "target_pair_str", "accuracy"
+)
+plot_data = pair_data.fillna(1)
+
+def plot_triangle_accuracies(plot_data, figsize=(10, 10)):
+    mask = np.zeros_like(plot_data)
+    mask[np.triu_indices_from(mask)] = True
+    with sns.axes_style("whitegrid"):
+        f, ax = plt.subplots(figsize=figsize)
+        ax.set_title("Accuracy for pairs of genre's")
+        sns.heatmap(
+            plot_data,
+            annot=True,
+            fmt=".0%",
+            ax=ax,
+            vmin=.3,
+            cmap=sns.dark_palette("#28708a", reverse=False, as_cmap=True),
+            mask=mask,
+            
+        )
+
 # %%
 groupby = ["algorithm", "additional_structure_str", "selection_method"]
 top_5_models = (
@@ -616,9 +518,7 @@ top_5_ids = [
     for model_config in top_5_models
 ]
 # %%
-from reporting_functions import get_model_result_list
 
-result_list = get_model_result_list(get_experiment_config(path_experiments, exp_id))
 # %%
 X_test = pd.read_csv(f"{path_experiments}/{exp_id}/X_test.csv", index_col=0)
 columns = X_test.columns
@@ -633,6 +533,7 @@ plot_binary_tree(tmp_results[1], columns)
 
 
 import seaborn as sns
+
 sns.set_theme(style="ticks")
 
 df = sns.load_dataset("penguins")

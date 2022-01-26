@@ -179,7 +179,7 @@ def get_result_table_target_pairs(data, each_var, group_var, metric, group_filte
     grouped_data = data.groupby([each_var, group_var])[metric].max()
     grouped_data = grouped_data.unstack(level=0).copy()
     all_combos = [pair.split("_") for pair in grouped_data.index]
-    distinct_levels = {item for combo in all_combos for item in combo}
+    distinct_levels = sorted({item for combo in all_combos for item in combo})
     display_table = pd.DataFrame(columns=distinct_levels, index=distinct_levels)
     for index, row in grouped_data.iterrows():
         target_pair = index.split("_")
@@ -189,6 +189,25 @@ def get_result_table_target_pairs(data, each_var, group_var, metric, group_filte
     display_table.loc[f"Average"] = display_table.mean(axis=0)
     display_table[f"Average"] = display_table.mean(axis=1)
     return display_table
+
+
+def plot_triangle_accuracies(plot_data, figsize=(10, 10), title="Accuracy for pairs of genre's"):
+    mask = np.zeros_like(plot_data)
+    mask[np.triu_indices_from(mask)] = True
+    mask[mask.shape[0] - 1, mask.shape[1] - 1] = False
+    with sns.axes_style("whitegrid"):
+        f, ax = plt.subplots(figsize=figsize)
+        ax.set_title(title)
+        sns.heatmap(
+            plot_data,
+            annot=True,
+            fmt=".0%",
+            ax=ax,
+            vmin=0.3,
+            cmap=sns.dark_palette("#28708a", reverse=False, as_cmap=True),
+            mask=mask,
+        )
+    return plt
 
 
 def plot_loss(data, groupby, group_filter=[], figsize=(30, 5)):
@@ -315,6 +334,7 @@ def plot_119_accuracy_per_structure(result_data, figsize=(14, 7)):
             dashes=False,
             marker="o",
         )
+    return fig
 
 
 def check_filter_on_list(filter_list, check_list):
@@ -880,8 +900,8 @@ def gather_results_118_135(
             "target_pair": [],
             "additional_structure": [],
             "additional_structure_str": [],
-            "wire_config":[],
-            "wire_config_str":[],
+            "wire_config": [],
+            "wire_config_str": [],
             "target_pair_str": [],
             "mean_test_score": [],
             "std_test_score": [],
@@ -908,15 +928,17 @@ def gather_results_118_135(
         tmp_result["model_name"] = model_name
 
         tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
-        tmp_result[
-            "additional_structure_str"
-        ] = f"{model_configuration.additional_structure[0]}_{model_configuration.additional_structure[1]}_{model_configuration.additional_structure[2]}"
-        tmp_result[
-            "wire_config"
-        ] = model_configuration.additional_structure[2]
-        tmp_result[
-            "wire_config_str"
-        ] = '-'.join([str(item) for item in model_configuration.additional_structure[2].values()])
+        if model_configuration.additional_structure:
+            tmp_result[
+                "additional_structure_str"
+            ] = f"{model_configuration.additional_structure[0]}_{model_configuration.additional_structure[1]}_{model_configuration.additional_structure[2]}"
+            tmp_result["wire_config"] = model_configuration.additional_structure[2]
+            tmp_result["wire_config_str"] = "-".join(
+                [
+                    str(item)
+                    for item in model_configuration.additional_structure[2].values()
+                ]
+            )
         tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][
             clf.best_index_
         ]
@@ -1006,23 +1028,33 @@ def get_wire_combos_graph(
 
     return n_graphs
 
-def plot_122_scatter(result_data, figsize = (10, 10)):    
+
+def plot_122_scatter(result_data, figsize=(10, 10)):
     groupby = ["additional_structure_str", "selection_method"]
     metric = "accuracy"
-    filter_struc = lambda data, ind, val: data.apply(lambda row: row["additional_structure"][ind]==val, axis=1)
-    filter_col_val = lambda data, col, val: data.apply(lambda row: row[col]==val, axis=1)
-    U_5_rockreg = result_data[filter_col_val(result_data, "target_pair_str", "rock_reggae") & filter_struc(result_data,0,"U_5")].copy()
+    filter_struc = lambda data, ind, val: data.apply(
+        lambda row: row["additional_structure"][ind] == val, axis=1
+    )
+    filter_col_val = lambda data, col, val: data.apply(
+        lambda row: row[col] == val, axis=1
+    )
+    U_5_rockreg = result_data[
+        filter_col_val(result_data, "target_pair_str", "rock_reggae")
+        & filter_struc(result_data, 0, "U_5")
+    ].copy()
     # U_5_classpop = result_data[filter_col_val(result_data, "target_pair_str", "classical_pop") & filter_struc(result_data,0,"U_5")].copy()
     # U_SU4_rockreg = result_data[filter_col_val(result_data, "target_pair_str", "rock_reggae") & filter_struc(result_data,0,"U_SU4")].copy()
     # U_SU4_classpop = result_data[filter_col_val(result_data, "target_pair_str", "classical_pop") & filter_struc(result_data,0,"U_SU4")].copy()
-    plot_U_5_rockreg=get_line_plot_data(U_5_rockreg, groupby, metric)
+    plot_U_5_rockreg = get_line_plot_data(U_5_rockreg, groupby, metric)
     # plot_U_5_classpop=get_line_plot_data(U_5_classpop, groupby, metric)
     # plot_U_SU4_rockreg=get_line_plot_data(U_SU4_rockreg, groupby, metric)
     # plot_U_SU4_classpop=get_line_plot_data(U_SU4_classpop, groupby, metric)
 
-    plot_data=plot_U_5_rockreg
-    plot_data["additional_structure_str"]=plot_data.apply(lambda row: "_".join(row["additional_structure_str"].split("_")[3:]), axis=1)
-    plot_data.index=plot_data["additional_structure_str"]
+    plot_data = plot_U_5_rockreg
+    plot_data["additional_structure_str"] = plot_data.apply(
+        lambda row: "_".join(row["additional_structure_str"].split("_")[3:]), axis=1
+    )
+    plot_data.index = plot_data["additional_structure_str"]
     # plot_U_5_rockreg = plot_U_5_rockreg.drop("additional_structure_str", axis=0)
     # plot_U_SU4_classpop["wire_pattern"]=plot_U_5_classpop.apply(lambda row: "_".join(row["additional_structure_str"].split("_")[3:]), axis=1)
     # plot_U_SU4_rockreg["wire_pattern"]=plot_U_SU4_rockreg.apply(lambda row: "_".join(row["additional_structure_str"].split("_")[3:]), axis=1)
@@ -1032,7 +1064,7 @@ def plot_122_scatter(result_data, figsize = (10, 10)):
         fig, axes = plt.subplots(1, 1, figsize=figsize, sharey=True)
         axes.set_title("U_5, Rock vs Reggae")
         axes.set_xlabel("Wire Pattern")
-        axes=sns.scatterplot(
+        axes = sns.scatterplot(
             data=pd.melt(
                 plot_data,
                 "additional_structure_str",
@@ -1044,17 +1076,16 @@ def plot_122_scatter(result_data, figsize = (10, 10)):
             hue="selection_method",
             markers=markers,
             style="selection_method",
-            #palette=["#4c72b0","#dd8452"],
+            # palette=["#4c72b0","#dd8452"],
             s=100,
             # marker="o",
         )
 
         plt.xticks(rotation=90)
         axes.set(ylim=(0, 1))
-        #axes.set_aspect('equal', adjustable='box')
+        # axes.set_aspect('equal', adjustable='box')
         # 24 is the number of wire patterns, this helps make the plot square
-        axes.yaxis.set_major_locator(ticker.MultipleLocator(1/24))
-
+        axes.yaxis.set_major_locator(ticker.MultipleLocator(1 / 24))
 
 
 def generic_plot_201(
@@ -1093,29 +1124,36 @@ def generic_plot_201(
         # axes.set_aspect('equal', adjustable='box')
         # 24 is the number of wire patterns, this helps make the plot square
         axes.yaxis.set_major_locator(ticker.MultipleLocator(1 / plot_data.shape[0]))
+        return fig
+
 
 # %%
-def plot_binary_pca_model(model_result, figsize = (16,8)):
+def plot_binary_pca_model(model_result, figsize=(16, 8)):
     selection_method = model_result.model_configuration.selection_method
     target_pair = model_result.model_configuration.target_pair
-    var_exp = model_result.pipeline.named_steps[selection_method].explained_variance_ratio_
+    var_exp = model_result.pipeline.named_steps[
+        selection_method
+    ].explained_variance_ratio_
     cum_var_exp = var_exp.cumsum()
 
     feature_names = [
-    f"{selection_method}-{i}" for i in range(model_result.samples_tfd.X_test.shape[1])
+        f"{selection_method}-{i}"
+        for i in range(model_result.samples_tfd.X_test.shape[1])
     ] + ["genre"]
     plot_data = pd.DataFrame(
         np.c_[model_result.samples_tfd.X_test, model_result.samples_tfd.y_test],
         columns=feature_names,
     )
 
-    plot_data["genre"]=plot_data.apply(lambda row: target_pair[1] if row["genre"] == 1 else target_pair[0], axis=1)
+    plot_data["genre"] = plot_data.apply(
+        lambda row: target_pair[1] if row["genre"] == 1 else target_pair[0], axis=1
+    )
     with sns.axes_style("whitegrid"):
         fig, axes = plt.subplots(1, 2, figsize=figsize)
-        
+
         axes[0].set_title("Principal Component Analysis - First 2 components")
         sns.scatterplot(
-            ax= axes[0],
+            ax=axes[0],
             data=plot_data,
             x="pca-0",
             y="pca-1",
@@ -1128,20 +1166,22 @@ def plot_binary_pca_model(model_result, figsize = (16,8)):
         )
         axes[1].set_title("Cumulative Explained Variance")
         axes[1].bar(
-                range(len(var_exp)),
-                var_exp,
-                alpha=0.5,
-                align="center",
-                label="individual explained variance",
-            )
+            range(len(var_exp)),
+            var_exp,
+            alpha=0.5,
+            align="center",
+            label="individual explained variance",
+        )
         axes[1].step(
-                range(len(var_exp)),
-                cum_var_exp,
-                where="mid",
-                label="cumulative explained variance",
-            )
+            range(len(var_exp)),
+            cum_var_exp,
+            where="mid",
+            label="cumulative explained variance",
+        )
         axes[1].set_ylabel("Explained variance ratio")
         axes[1].set_xlabel("Principal components")
+        return fig
+
 
 def plot_binary_pair(model_result, X_test_columns):
     selection_method = model_result.model_configuration.selection_method
@@ -1160,9 +1200,11 @@ def plot_binary_pair(model_result, X_test_columns):
     )
     sns.set_theme(style="ticks")
     with sns.axes_style("whitegrid"):
-        sns.pairplot(plot_data, hue="genre")
+        plt = sns.pairplot(plot_data, hue="genre")
+        # plt.fig.suptitle(title)
 
-    return feature_names
+    return plt
+
 
 # %%
 def get_file_content(file_path):
