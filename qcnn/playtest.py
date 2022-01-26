@@ -398,9 +398,9 @@ import seaborn as sns
 
 path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
 # %%
-exp_id = 10
+exp_id = 0
 result_data = gather_results_0_12(exp_id, path_experiments=path_experiments)
-display(plot_loss(result_data, ["embedding_type", "circuit"], figsize=(28, 5)))
+plot_loss(result_data, ["embedding_type", "circuit"], figsize=(28, 5), save_plot=True)
 
 # %%
 """Experiment 119

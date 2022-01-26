@@ -210,7 +210,7 @@ def plot_triangle_accuracies(plot_data, figsize=(10, 10), title="Accuracy for pa
     return plt
 
 
-def plot_loss(data, groupby, group_filter=[], figsize=(30, 5)):
+def plot_loss(data, groupby, group_filter=[], figsize=(30, 5), save_plot=False):
     grouped_data_train = data.groupby(groupby)["loss_train_history"].max()
     loss_history_train = grouped_data_train.copy()
     loss_history_train = loss_history_train.unstack(level=0)
@@ -276,6 +276,8 @@ def plot_loss(data, groupby, group_filter=[], figsize=(30, 5)):
                 axes[1].set_title(
                     f"{col}-{'-'.join(group_filter)} Test Cost Per Iteration"
                 )
+            if save_plot==True:
+                fig.savefig(f"{col}-{'-'.join(group_filter)}.svg")
 
 
 def get_line_plot_data(data, groupby, metric):
