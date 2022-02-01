@@ -477,11 +477,13 @@ grouped_data_df["level_0"] = [item.split("_")[0] for item in grouped_data.index]
 grouped_data_df["level_1"] = [item.split("_")[1] for item in grouped_data.index]
 # %%
 import seaborn as sns
+
 figsize = (10, 10)
 pair_data = get_result_table_target_pairs(
     result_data, "algorithm", "target_pair_str", "accuracy"
 )
 plot_data = pair_data.fillna(1)
+
 
 def plot_triangle_accuracies(plot_data, figsize=(10, 10)):
     mask = np.zeros_like(plot_data)
@@ -494,11 +496,11 @@ def plot_triangle_accuracies(plot_data, figsize=(10, 10)):
             annot=True,
             fmt=".0%",
             ax=ax,
-            vmin=.3,
+            vmin=0.3,
             cmap=sns.dark_palette("#28708a", reverse=False, as_cmap=True),
             mask=mask,
-            
         )
+
 
 # %%
 groupby = ["algorithm", "additional_structure_str", "selection_method"]
@@ -639,4 +641,39 @@ def plot_top2d(fig, ax, pipe_Xy_df, config, feature_names, data_utility):
 
 
 # %%
+from circuit_presets import get_wire_combos
+from reporting_functions import get_wire_combos_graph,get_circuit_diagram
+import networkx as nx
+import matplotlib.pyplot as plt
+
 # (qcnn, U_5_psatz1_{'n_wires': 8, 'c_step': 1, 'pool_pattern': 'right', 'p_step': 0, 'wire_to_cut': 0}, tree)	0.976744	0.812500	0.894622
+n_wires = 16
+c_step = 1
+p_step = 3
+pool_pattern = "outside"
+wire_to_cut = 1
+
+wire_combos = get_wire_combos(n_wires, c_step, pool_pattern, p_step=p_step, wire_to_cut=wire_to_cut)
+
+
+n_graphs = get_wire_combos_graph(wire_combos, n_qbits=n_wires)
+
+for layer in n_graphs.keys():
+    fig, ax = plt.subplots(figsize=(7, 7))
+    tmp_g = n_graphs[layer]
+    nx.draw(
+        tmp_g[0],
+        tmp_g[1],
+        with_labels=True,
+        node_size=tmp_g[2],
+        edge_color="#000000",
+        edgecolors="#000000",
+        node_color=tmp_g[3],
+        width=1.5,
+    )
+    fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220112/{pool_pattern}/{n_wires}-{pool_pattern}-{c_step}-{p_step}-{wire_to_cut}-{layer}.svg")
+    sub_wires = {key:value for key,value in wire_combos.items() if key==layer}
+    fig_2 = get_circuit_diagram(sub_wires, n_qbits=n_wires)
+
+    fig_2.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220112/{pool_pattern}/{n_wires}-{pool_pattern}-{c_step}-{p_step}-{wire_to_cut}-{layer}-circuit.svg")
+    # %%

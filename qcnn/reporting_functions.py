@@ -258,7 +258,7 @@ def plot_loss(data, groupby, group_filter=[], figsize=(30, 5), save_plot=False):
                 axes[0].set_title(
                     f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration"
                 )
-
+                axes[0].savefig(f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration.svg")
                 sns.lineplot(
                     ax=axes[1],
                     data=pd.melt(
@@ -982,7 +982,7 @@ def get_circuit_diagram(
         output="mpl",
         plot_barriers=False,
         justify="none",
-        style={"displaycolor": disp_color},
+        style={"displaycolor": disp_color, "linecolor": "#000000"},
     )
 
 
