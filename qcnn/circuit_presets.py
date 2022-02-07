@@ -21,9 +21,9 @@ CIRCUIT_OPTIONS = {
 
 POOLING_OPTIONS = {"psatz1": 2, "psatz2": 0, "psatz3": 3}
 
-
+# TODO randomized pooling
 def get_wire_combos(n_wires, c_step, pool_pattern, p_step=0, wire_to_cut=1):
-    """ n_wires = 8
+    """n_wires = 8
         c_step = 1
         p_step = 0
         pool_pattern = "eo_even"
@@ -43,19 +43,19 @@ def get_wire_combos(n_wires, c_step, pool_pattern, p_step=0, wire_to_cut=1):
     if pool_pattern == "left":
         # 0 1 2 3 4 5 6 7
         # x x x x
-        pool_filter = lambda arr: arr[0 : len(arr) // 2 : 1]  # Left
+        pool_filter = lambda arr: arr[0 : len(arr) // 2 : 1]
     elif pool_pattern == "right":
         # 0 1 2 3 4 5 6 7
         #         x x x x
-        pool_filter = lambda arr: arr[len(arr) : len(arr) // 2 - 1 : -1]  # Right
+        pool_filter = lambda arr: arr[len(arr) : len(arr) // 2 - 1 : -1]
     elif pool_pattern == "eo_even":
         # 0 1 2 3 4 5 6 7
         # x   x   x   x
-        pool_filter = lambda arr: arr[0::2]  # eo even
+        pool_filter = lambda arr: arr[0::2]
     elif pool_pattern == "eo_odd":
         # 0 1 2 3 4 5 6 7
         #   x   x   x   x
-        pool_filter = lambda arr: arr[1::2]  # eo odd
+        pool_filter = lambda arr: arr[1::2]
     elif pool_pattern == "inside":
         # 0 1 2 3 4 5 6 7
         #     x x x x
@@ -77,7 +77,9 @@ def get_wire_combos(n_wires, c_step, pool_pattern, p_step=0, wire_to_cut=1):
         ]  # outside
     wire_combos = {}
     wires = range(n_wires)
-    for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, -1)):
+    for layer_ind, i in zip(
+        range(int(log2(n_wires))), range(int(log2(n_wires)), 0, -1)
+    ):
         conv_size = 2 ** i
         circle_n = lambda x: x % conv_size
         wire_combos[f"c_{layer_ind+1}"] = [
@@ -90,7 +92,9 @@ def get_wire_combos(n_wires, c_step, pool_pattern, p_step=0, wire_to_cut=1):
         cut_wires = [x[wire_to_cut] for x in tmp_pool_selection]
         wires = [wire for wire in wires if not (wire in cut_wires)]
         p_circle_n = lambda x: x % len(cut_wires)
-        wire_combos[f"p_{layer_ind+1}"] = [(cut_wires[p_circle_n(x + p_step)], wires[x]) for x in range(len(cut_wires))]
+        wire_combos[f"p_{layer_ind+1}"] = [
+            (cut_wires[p_circle_n(x + p_step)], wires[x]) for x in range(len(cut_wires))
+        ]
         # wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
         if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
             wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
@@ -224,8 +228,6 @@ def U_SU4(params, wires):  # 15 params arbitrary 2 Qbit unitary
 
 
 # Pooling Layer
-
-
 def psatz1(
     params, wires
 ):  # 2 params # TODO classical post processing, quantum teleportation protocall Nielsung and Chuang tunneling protocall 1.3.7 p 26

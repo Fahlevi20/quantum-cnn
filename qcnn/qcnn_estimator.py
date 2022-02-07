@@ -11,7 +11,6 @@ from circuit_presets import CIRCUIT_OPTIONS, POOLING_OPTIONS, get_wire_combos
 
 class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
     """
-    TODO get this to work
     from qcnn_estimator import Qcnn_Classifier
     from sklearn.utils.estimator_checks import check_estimator
     estimator = Qcnn_Classifier()
@@ -28,6 +27,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         encoding_type="Angle",
         encoding_kwargs={},
         layer_defintion=("U_5", "psatz1", [8, 1, "eo_even"]),
+        noise=False,
     ):
         self.n_iter = n_iter
         self.learning_rate = learning_rate
@@ -37,6 +37,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         self.encoding_type = encoding_type
         self.layer_defintion = layer_defintion
         self.encoding_kwargs = encoding_kwargs
+        self.noise = noise
 
         # find place for these parameters set
         # params = qml_np.random.randn(qcnn_structure.paramater_count)
@@ -77,7 +78,6 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         self.coef_count_, self.coef_indices_ = self._get_coef_information()
         # Initialize Coefficients TODO use state
         self.coef_ = np.random.randn(self.coef_count_)
-        
 
         coefficients = self.coef_
         tmp_layer_info = [
@@ -156,11 +156,17 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         return y_hat_clf
 
     def predict_proba(self, X, require_tensor=False):
-        if require_tensor:
-            y_hat = [quantum_node(x, self) for x in X]
+        if self.noise == False:
+            # not using a noisy device
+            if require_tensor:
+                y_hat = [quantum_node(x, self) for x in X]
+            else:
+                y_hat = np.array([quantum_node(x, self).numpy() for x in X])
         else:
-            y_hat = np.array([quantum_node(x, self).numpy() for x in X])
-
+            if require_tensor:
+                y_hat = [quantum_node_noisy(x, self) for x in X]
+            else:
+                y_hat = np.array([quantum_node_noisy(x, self).numpy() for x in X])
         return y_hat
 
     def score(self, X, y, return_loss=False, **kwargs):
@@ -234,9 +240,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             circ_name = layer_defintion[0]
             pool_name = layer_defintion[1]
             wire_pattern_args = layer_defintion[2]
-            wire_combos = get_wire_combos(
-                **wire_pattern_args
-            )
+            wire_combos = get_wire_combos(**wire_pattern_args)
 
             layer_dict = {}
             layer_index = 0
@@ -315,10 +319,27 @@ class Layer:
 
 
 DEVICE = qml.device("default.qubit", wires=8)
+DEVICE_NOISE = qml.device("forest.qvm", device="Aspen-8", noisy=True)
 
 
 @qml.qnode(DEVICE)
 def quantum_node(X, classifier):
+    classifier = classifier.numpy()
+    apply_encoding(
+        X,
+        encoding_type=classifier.encoding_type,
+        encoding_kwargs=classifier.encoding_kwargs,
+    )
+    classifier._evaluate()
+    if classifier.cost == "mse":
+        result = qml.expval(qml.PauliZ(classifier.response_wire_))
+    elif classifier.cost == "cross_entropy":
+        result = qml.probs(wires=classifier.response_wire_)
+    return result
+
+
+@qml.qnode(DEVICE_NOISE)
+def quantum_node_noisy(X, classifier):
     classifier = classifier.numpy()
     apply_encoding(
         X,

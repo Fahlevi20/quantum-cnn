@@ -441,14 +441,16 @@ plot_data_1[{"pca", "tree"}]
 
 # %%
 # graph
-# TODO find way to show qbit is removed in make node small or something
+
 # https://towardsdatascience.com/customizing-networkx-graphs-f80b4e69bedf
 import networkx as nx
 import matplotlib.pyplot as pl
 
 
 # %%
-
+path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
+exp_id = 302
+result_data = gather_results_118_135(exp_id)
 # %%
 # %%
 from circuit_presets import get_wire_combos
@@ -642,18 +644,20 @@ def plot_top2d(fig, ax, pipe_Xy_df, config, feature_names, data_utility):
 
 # %%
 from circuit_presets import get_wire_combos
-from reporting_functions import get_wire_combos_graph,get_circuit_diagram
+from reporting_functions import get_wire_combos_graph, get_circuit_diagram
 import networkx as nx
 import matplotlib.pyplot as plt
 
 # (qcnn, U_5_psatz1_{'n_wires': 8, 'c_step': 1, 'pool_pattern': 'right', 'p_step': 0, 'wire_to_cut': 0}, tree)	0.976744	0.812500	0.894622
-n_wires = 16
+n_wires = 8
 c_step = 1
 p_step = 3
-pool_pattern = "outside"
+pool_pattern = "eo_even"
 wire_to_cut = 1
 
-wire_combos = get_wire_combos(n_wires, c_step, pool_pattern, p_step=p_step, wire_to_cut=wire_to_cut)
+wire_combos = get_wire_combos(
+    n_wires, c_step, pool_pattern, p_step=p_step, wire_to_cut=wire_to_cut
+)
 
 
 n_graphs = get_wire_combos_graph(wire_combos, n_qbits=n_wires)
@@ -671,9 +675,231 @@ for layer in n_graphs.keys():
         node_color=tmp_g[3],
         width=1.5,
     )
-    fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220112/{pool_pattern}/{n_wires}-{pool_pattern}-{c_step}-{p_step}-{wire_to_cut}-{layer}.svg")
-    sub_wires = {key:value for key,value in wire_combos.items() if key==layer}
+    fig.savefig(
+        f"/home/matt/dev/projects/quantum-cnn/reports/20220202/{pool_pattern}/{n_wires}-{pool_pattern}-{c_step}-{p_step}-{wire_to_cut}-{layer}.svg"
+    )
+    sub_wires = {key: value for key, value in wire_combos.items() if key == layer}
     fig_2 = get_circuit_diagram(sub_wires, n_qbits=n_wires)
 
-    fig_2.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220112/{pool_pattern}/{n_wires}-{pool_pattern}-{c_step}-{p_step}-{wire_to_cut}-{layer}-circuit.svg")
-    # %%
+    fig_2.savefig(
+        f"/home/matt/dev/projects/quantum-cnn/reports/20220202/{pool_pattern}/{n_wires}-{pool_pattern}-{c_step}-{p_step}-{wire_to_cut}-{layer}-circuit.svg"
+    )
+# %%
+"""n_wires = 8
+        c_step = 1
+        p_step = 0
+        pool_pattern = "eo_even"
+        wire_to_cut = 0
+        ^^produces the original papaers pattern
+
+    Args:
+        n_wires ([type]): [description]
+        c_step ([type]): [description]
+        pool_pattern ([type]): [description]
+        p_step (int, optional): [description]. Defaults to 0.
+        wire_to_cut (int, optional): [description]. Defaults to 1.
+
+    Returns:
+        [type]: [description]
+    """
+from math import log2
+import numpy as np
+
+n_wires = 32
+c_step = 1
+p_step = 0
+pool_pattern = "eo_even"
+wire_to_cut = 0
+
+if pool_pattern == "left":
+    # 0 1 2 3 4 5 6 7
+    # x x x x
+    pool_filter = lambda arr: arr[0 : len(arr) // 2 : 1]
+elif pool_pattern == "right":
+    # 0 1 2 3 4 5 6 7
+    #         x x x x
+    pool_filter = lambda arr: arr[len(arr) : len(arr) // 2 - 1 : -1]
+elif pool_pattern == "eo_even":
+    # 0 1 2 3 4 5 6 7
+    # x   x   x   x
+    pool_filter = lambda arr: arr[0::2]
+elif pool_pattern == "eo_odd":
+    # 0 1 2 3 4 5 6 7
+    #   x   x   x   x
+    pool_filter = lambda arr: arr[1::2]
+elif pool_pattern == "inside":
+    # 0 1 2 3 4 5 6 7
+    #     x x x x
+    pool_filter = lambda arr: arr[
+        len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1
+    ]  # inside
+elif pool_pattern == "outside":
+    # 0 1 2 3 4 5 6 7
+    # x x         x x
+    pool_filter = lambda arr: [
+        item
+        for item in arr
+        if not (
+            item
+            in arr[len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1]
+        )
+    ]  # outside
+wire_combos = {}
+wires = range(n_wires)
+for layer_ind, i in zip(range(int(log2(n_wires))), range(int(log2(n_wires)), 0, -1)):
+    conv_size = 2 ** i
+    circle_n = lambda x: x % conv_size
+    wire_combos[f"c_{layer_ind+1}"] = [
+        (wires[x], wires[circle_n(x + c_step)]) for x in range(conv_size)
+    ]
+    if (i == 1) and (len(wire_combos[f"c_{layer_ind+1}"]) > 1):
+        wire_combos[f"c_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
+
+    tmp_pool_selection = pool_filter(wire_combos[f"c_{layer_ind+1}"])
+    cut_wires = [x[wire_to_cut] for x in tmp_pool_selection]
+    wires = [wire for wire in wires if not (wire in cut_wires)]
+    p_circle_n = lambda x: x % len(cut_wires)
+    wire_combos[f"p_{layer_ind+1}"] = [
+        (cut_wires[p_circle_n(x + p_step)], wires[x]) for x in range(len(cut_wires))
+    ]
+    # wire_combos[f"p_{layer_ind+1}"] = pool_filter(wire_combos[f"c_{layer_ind+1}"])
+    if len(wire_combos[f"p_{layer_ind+1}"]) == 0:
+        wire_combos[f"p_{layer_ind+1}"] = [wire_combos[f"c_{layer_ind+1}"][0]]
+wire_combos
+
+# %%
+from reporting_functions import get_model_result_list, plot_binary_pca_model
+import seaborn as sns
+
+result_list = get_model_result_list(get_experiment_config(path_experiments, exp_id))
+
+plot_binary_pca_model(result_list[0])
+# %%
+import json
+import pandas as pd
+import numpy as np
+from collections import namedtuple
+import itertools as it
+import tensorflow as tf
+from preprocessing import ImageResize
+from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
+
+
+Samples = namedtuple("Samples", ["X_train", "y_train", "X_test", "y_test"])
+(X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
+# (X_train, y_train), (X_test, y_test) = tf.keras.datasets.fashion_mnist.load_data()
+
+samples = Samples(X_train, y_train, X_test, y_test)
+target_pair = [0, 1]
+
+all_custom_steps = []
+custom_step = ("image_resize", ImageResize(**{"size": 784}))
+all_custom_steps = all_custom_steps + [custom_step]
+
+selection = ("pca", PCA(**{"n_components": 8}))
+steps_list = all_custom_steps + [selection]
+
+pipeline = Pipeline(steps_list)
+
+train_filter = np.where(
+    (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+)
+
+test_filter = np.where(
+    (samples.y_test == target_pair[0]) | (samples.y_test == target_pair[1])
+)
+X_train_filtered, X_test_filtered = (
+    samples.X_train[train_filter],
+    samples.X_test[test_filter],
+)
+y_train_filtered, y_test_filtered = (
+    samples.y_train[train_filter],
+    samples.y_test[test_filter],
+)
+# TODO this still very hardcoded
+y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
+y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)
+
+# TODO find a way to add normalization in pipeline, currently custom steps are executed before scaler, and this needs to happen before resize
+
+samples_filtered = Samples(
+    X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered
+)
+pipeline.fit(samples_filtered.X_train, samples_filtered.y_train)
+
+X_train_tfd = pipeline.transform(samples_filtered.X_train)
+X_test_tfd = pipeline.transform(samples_filtered.X_test)
+
+# # TODO improve / automate, this is temporary for the large image dataset.
+# batch_train_index = np.random.randint(X_train_tfd.shape[0], size=1000)
+# X_train_tfd = X_train_tfd[batch_train_index]
+# y_train_filtered = np.array(y_train_filtered)[batch_train_index]
+
+# batch_test_index = np.random.randint(X_test_tfd.shape[0], size=500)
+# X_test_tfd = X_test_tfd[batch_test_index]
+# y_test_filtered = np.array(y_test_filtered)[batch_test_index]
+
+samples_tfd = Samples(X_train_tfd, y_train_filtered, X_test_tfd, y_test_filtered)
+
+# %%
+import seaborn as sns
+import matplotlib.pyplot as plt
+figsize=(16, 8)
+selection_method = "pca"
+target_pair = [0,1]
+var_exp = pipeline.named_steps[
+    "pca"
+].explained_variance_ratio_
+cum_var_exp = var_exp.cumsum()
+
+feature_names = [
+    f"{selection_method}-{i}"
+    for i in range(samples_tfd.X_test.shape[1])
+] + ["clothing"]
+plot_data = pd.DataFrame(
+    np.c_[samples_tfd.X_test, samples_tfd.y_test],
+    columns=feature_names,
+)
+
+plot_data["clothing"] = plot_data.apply(
+    lambda row: target_pair[1] if row["clothing"] == 1 else target_pair[0], axis=1
+)
+with sns.axes_style("whitegrid"):
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
+
+    axes[0].set_title("Principal Component Analysis - First 2 components")
+    sns.scatterplot(
+        ax=axes[0],
+        data=plot_data,
+        x="pca-0",
+        y="pca-1",
+        hue="clothing",
+        # markers=markers,
+        # style="selection_method",
+        # palette=["#4c72b0","#dd8452"],
+        s=100,
+        # marker="o",
+    )
+    axes[1].set_title("Cumulative Explained Variance")
+    axes[1].bar(
+        range(len(var_exp)),
+        var_exp,
+        alpha=0.5,
+        align="center",
+        label="individual explained variance",
+    )
+    axes[1].step(
+        range(len(var_exp)),
+        cum_var_exp,
+        where="mid",
+        label="cumulative explained variance",
+    )
+    axes[1].set_ylabel("Explained variance ratio")
+    axes[1].set_xlabel("Principal components")
+
+# %%
+fig.savefig(
+        f"/home/matt/dev/projects/quantum-cnn/reports/20220202/mnist_pca.svg"
+    )
+# %%

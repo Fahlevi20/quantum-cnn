@@ -94,6 +94,7 @@
     },
     "model": {
         "quantum": {
+            "noise":false,
             "qcnn": {
                 "circuit_list": [
                     "U_5"

@@ -68,6 +68,27 @@ class ImageResize(BaseEstimator, TransformerMixin):
         return X_squeezed
 
 
+class ImageNormalize(BaseEstimator, TransformerMixin):
+    """
+    Normalizes an image
+    """
+
+    def __init__(self, scaling_factor=None):
+        self.scaling_factor = scaling_factor
+
+    def fit(self, X, y=None):
+        """returns itself"""
+        if self.scaling_factor == None:
+            # assume image contains values 0 - 255
+            self.scaling_factor = 255
+        return self
+
+    def transform(self, X, y=None):
+        """Normalizes image between 0 and 1"""
+        X_norm = X / self.scaling_factor
+        return X_norm
+
+
 def filter_embedding_options(embedding_list):
     """Method to filter out the embedding options dictionary. Removes all embeddings
     not specified in the provided list
@@ -113,7 +134,11 @@ def get_preprocessing_pipeline(
         for step, step_info in custom_steps.items():
             if step_info["name"] == "image_resize":
                 custom_step = (step_info["name"], ImageResize(**step_info["params"]))
-            all_custom_steps = all_custom_steps + [custom_step]
+                all_custom_steps = all_custom_steps + [custom_step]
+            if step_info["name"] == "image_normalize":
+                custom_step = (step_info["name"], ImageNormalize(**step_info["params"]))
+                all_custom_steps = all_custom_steps + [custom_step]
+            
     # Define Scaler
     if scaler_method == None or scaler_method == "identity":
         scaler = (
@@ -153,8 +178,6 @@ def get_preprocessing_pipeline(
         selection = (selection_method, ImageResize(**selection_params))
     elif selection_method == "custom_mask":
         selection = (selection_method, CustomMask(**selection_params))
-
-
 
     steps_list = all_custom_steps + [scaler, selection]
     pipeline = Pipeline(steps_list)
@@ -211,6 +234,8 @@ def apply_preprocessing(
             y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
             y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)
 
+            # TODO find a way to add normalization in pipeline, currently custom steps are executed before scaler, and this needs to happen before resize
+
             samples_filtered = Samples(
                 X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered
             )
@@ -219,7 +244,7 @@ def apply_preprocessing(
         X_train_tfd = pipeline.transform(samples_filtered.X_train)
         X_test_tfd = pipeline.transform(samples_filtered.X_test)
 
-        # # TODO improve / automate, this is temporary for the large image dataset.
+        # TODO improve / automate, this is temporary for the large image dataset.
         batch_train_index = np.random.randint(X_train_tfd.shape[0], size=1000)
         X_train_tfd = X_train_tfd[batch_train_index]
         y_train_filtered = np.array(y_train_filtered)[batch_train_index]
@@ -231,8 +256,6 @@ def apply_preprocessing(
         samples_tfd = Samples(
             X_train_tfd, y_train_filtered, X_test_tfd, y_test_filtered
         )
-
-        return samples_tfd
 
     else:
         # Preprocessing

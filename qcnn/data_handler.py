@@ -65,7 +65,8 @@ def get_image_data(path, set_name="mnist", **kwargs):
             import tensorflow as tf
             (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
         elif set_name=="f_mnist":
-            pass
+            import tensorflow as tf
+            (X_train, y_train), (X_test, y_test) = tf.keras.datasets.fashion_mnist.load_data()
         elif set_name=="gtzan":
             pass
 
