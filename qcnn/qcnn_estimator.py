@@ -319,7 +319,7 @@ class Layer:
 
 
 DEVICE = qml.device("default.qubit", wires=8)
-DEVICE_NOISE = qml.device("forest.qvm", device="Aspen-8", noisy=True)
+DEVICE_NOISE = qml.device("forest.qvm", device="2q", noisy=True)
 
 
 @qml.qnode(DEVICE)
