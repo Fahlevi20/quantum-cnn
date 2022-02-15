@@ -1,5 +1,6 @@
 pennylane
 pennylane-forest
+pennylane-qiskit
 tensorflow
 # torch
 sklearn
@@ -7,6 +8,7 @@ sklearn
 # torchaudio
 keras
 qiskit
+qiskit-aer
 pylatexenc
 networkx
 
