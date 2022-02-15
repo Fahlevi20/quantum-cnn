@@ -58,11 +58,11 @@ def train_quantum(
     # Get model information
     classification_type = config["model"].get("classification_type", "binary")
     cv_folds = config["model"].get("cv_folds", None)
-    n_jobs = config["model"].get("cv_folds", -1)
-    noise = config["model"][model_type].get("noise", False)
+    n_jobs = config["model"].get("n_jobs", -1)
 
     # Get algorithm information
     param_grid = config["model"][model_type][algorithm].get("param_grid", {})
+    noise = config["model"][model_type][algorithm].get("noise", False)
 
     # Preprocessing
     result_path = f"{config.get('path')}/{config.get('ID')}"

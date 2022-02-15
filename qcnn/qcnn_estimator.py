@@ -4,6 +4,12 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from sklearn.utils.multiclass import type_of_target
 import pennylane as qml
+import qiskit
+from qiskit import IBMQ, Aer
+from qiskit.providers.aer.noise import NoiseModel
+from qiskit.providers.aer.noise import depolarizing_error
+
+# from qiskit.providers.aer.noise.device import basic_device_noise_model
 from embedding import apply_encoding
 import circuit_presets
 from circuit_presets import CIRCUIT_OPTIONS, POOLING_OPTIONS, get_wire_combos
@@ -38,7 +44,6 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         self.layer_defintion = layer_defintion
         self.encoding_kwargs = encoding_kwargs
         self.noise = noise
-
         # find place for these parameters set
         # params = qml_np.random.randn(qcnn_structure.paramater_count)
 
@@ -319,12 +324,36 @@ class Layer:
 
 
 DEVICE = qml.device("default.qubit", wires=8)
-DEVICE_NOISE = qml.device("forest.qvm", device="2q", noisy=True)
+
+provider = IBMQ.load_account()
+backend = provider.get_backend("ibmq_manila")
+# NOISE_MODEL = NoiseModel()
+# error = depolarizing_error(0.05, 1)
+# NOISE_MODEL.add_quantum_error(error, ["rz", "u1", "u2", "u3"], [0])
+NOISE_MODEL = NoiseModel.from_backend(backend)
+# NOISE_MODEL = NOISE_MODEL.to_dict()
+
+
+# provider = IBMQ.load_account()
+# ibmq_16_melbourne = provider.get_backend('ibmq_16_melbourne')
+# device_properties = ibmq_16_melbourne.properties()
+
+# noise_model = basic_device_noise_model(device_properties)
+
+# DEVICE_NOISE = qml.device('qiskit.aer', wires=2, noise_model=noise_model)
+# ERROR = depolarizing_error(0.05, 1)
+# NOISE_MODEL = NOISE_MODEL.to_dict()
+DEVICE_NOISE = qml.device("qiskit.aer", wires=8, noise_model=NOISE_MODEL)
 
 
 @qml.qnode(DEVICE)
 def quantum_node(X, classifier):
-    classifier = classifier.numpy()
+    if getattr(classifier, "numpy", False):
+        # If classifier needs to be deserialized
+        classifier = classifier.numpy()
+    else:
+        print("Classifier didn't have to be converted .numpy()")
+
     apply_encoding(
         X,
         encoding_type=classifier.encoding_type,
@@ -340,7 +369,11 @@ def quantum_node(X, classifier):
 
 @qml.qnode(DEVICE_NOISE)
 def quantum_node_noisy(X, classifier):
-    classifier = classifier.numpy()
+    if getattr(classifier, "numpy", False):
+        # If classifier needs to be deserialized
+        classifier = classifier.numpy()
+    else:
+        print("Classifier didn't have to be converted .numpy()")
     apply_encoding(
         X,
         encoding_type=classifier.encoding_type,
