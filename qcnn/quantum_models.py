@@ -62,7 +62,6 @@ def train_quantum(
 
     # Get algorithm information
     param_grid = config["model"][model_type][algorithm].get("param_grid", {})
-    noise = config["model"][model_type][algorithm].get("noise", False)
 
     # Preprocessing
     result_path = f"{config.get('path')}/{config.get('ID')}"
@@ -86,7 +85,6 @@ def train_quantum(
             layer_defintion=qcnn_structure_permutation,
             encoding_type=embedding_type,
             encoding_kwargs=encoding_kwargs,
-            noise=noise,
         )
 
     if not (classification_type == "binary"):
@@ -102,6 +100,7 @@ def train_quantum(
     clf = GridSearchCV(
         model, param_grid, n_jobs=n_jobs, cv=cv_folds
     )  # error_score="raise" <- for debugging
+    # clf = model
     clf.fit(samples_tfd.X_train, samples_tfd.y_train)
 
     best_estimator = clf.best_estimator_

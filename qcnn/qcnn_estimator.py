@@ -25,15 +25,15 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
 
     def __init__(
         self,
-        n_iter=50,
+        n_iter=1,
         learning_rate=0.01,
-        batch_size=25,
+        batch_size=2,
         optimizer="nesterov",
         cost="cross_entropy",
         encoding_type="Angle",
         encoding_kwargs={},
         layer_defintion=("U_5", "psatz1", [8, 1, "eo_even"]),
-        noise=False,
+        noise=0.01,
     ):
         self.n_iter = n_iter
         self.learning_rate = learning_rate
@@ -161,17 +161,10 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         return y_hat_clf
 
     def predict_proba(self, X, require_tensor=False):
-        if self.noise == False:
-            # not using a noisy device
-            if require_tensor:
-                y_hat = [quantum_node(x, self) for x in X]
-            else:
-                y_hat = np.array([quantum_node(x, self).numpy() for x in X])
+        if require_tensor:
+            y_hat = [quantum_node(x, self) for x in X]
         else:
-            if require_tensor:
-                y_hat = [quantum_node_noisy(x, self) for x in X]
-            else:
-                y_hat = np.array([quantum_node_noisy(x, self).numpy() for x in X])
+            y_hat = np.array([quantum_node(x, self).numpy() for x in X])
         return y_hat
 
     def score(self, X, y, return_loss=False, **kwargs):
@@ -289,10 +282,25 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             if layer.layer_fn == None:
                 for wire_con in layer.wire_pattern:
                     layer.circuit(self.coef_[self.coef_indices_[layer_name]], wire_con)
+
             else:
                 layer.layer_fn(
                     layer.circuit, self.coef_[self.coef_indices_[layer_name]]
                 )
+            # If modelling noise is required
+            if self.noise:
+                # if layers are defined through wire combos function rather than custom structure
+                if (
+                    type(self.layer_defintion) == type(tuple())
+                    and len(self.layer_defintion) == 3
+                ):
+                    # then the number of wires is contained in the layer definition
+                    n_wires = self.layer_defintion[2]["n_wires"]
+                else:
+                    # else assume 8 Qbits for now
+                    n_wires = 8
+                for q in range(n_wires):
+                    qml.DepolarizingChannel(self.noise, wires=q)
 
     def _get_coef_information(self):
         total_coef_count = 0
@@ -323,27 +331,8 @@ class Layer:
         self.wire_pattern = wire_pattern
 
 
-DEVICE = qml.device("default.qubit", wires=8)
-
-provider = IBMQ.load_account()
-backend = provider.get_backend("ibmq_manila")
-# NOISE_MODEL = NoiseModel()
-# error = depolarizing_error(0.05, 1)
-# NOISE_MODEL.add_quantum_error(error, ["rz", "u1", "u2", "u3"], [0])
-NOISE_MODEL = NoiseModel.from_backend(backend)
-# NOISE_MODEL = NOISE_MODEL.to_dict()
-
-
-# provider = IBMQ.load_account()
-# ibmq_16_melbourne = provider.get_backend('ibmq_16_melbourne')
-# device_properties = ibmq_16_melbourne.properties()
-
-# noise_model = basic_device_noise_model(device_properties)
-
-# DEVICE_NOISE = qml.device('qiskit.aer', wires=2, noise_model=noise_model)
-# ERROR = depolarizing_error(0.05, 1)
-# NOISE_MODEL = NOISE_MODEL.to_dict()
-DEVICE_NOISE = qml.device("qiskit.aer", wires=8, noise_model=NOISE_MODEL)
+# TODO difference between mixed and qubit for noise modelling?
+DEVICE = qml.device("default.mixed", wires=8)
 
 
 @qml.qnode(DEVICE)
@@ -354,26 +343,6 @@ def quantum_node(X, classifier):
     else:
         print("Classifier didn't have to be converted .numpy()")
 
-    apply_encoding(
-        X,
-        encoding_type=classifier.encoding_type,
-        encoding_kwargs=classifier.encoding_kwargs,
-    )
-    classifier._evaluate()
-    if classifier.cost == "mse":
-        result = qml.expval(qml.PauliZ(classifier.response_wire_))
-    elif classifier.cost == "cross_entropy":
-        result = qml.probs(wires=classifier.response_wire_)
-    return result
-
-
-@qml.qnode(DEVICE_NOISE)
-def quantum_node_noisy(X, classifier):
-    if getattr(classifier, "numpy", False):
-        # If classifier needs to be deserialized
-        classifier = classifier.numpy()
-    else:
-        print("Classifier didn't have to be converted .numpy()")
     apply_encoding(
         X,
         encoding_type=classifier.encoding_type,
