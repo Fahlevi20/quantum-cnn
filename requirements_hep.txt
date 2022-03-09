@@ -1,14 +1,15 @@
 pennylane==0.20.0
-pennyLane-forest==0.20.0
-pennylane-qiskit==0.20.0
+# pennyLane-forest==0.20.0
+# pennylane-qiskit==0.20.0
+pennylane-cirq
 tensorflow==2.7.0
-# torch
+torch
 sklearn
 # torchvision 
 # torchaudio
 keras==2.7.0
-qiskit==0.34.1
-qiskit-aer==0.10.2
+#qiskit==0.34.1
+#qiskit-aer==0.10.2
 pylatexenc==2.10
 networkx==2.6.3
 

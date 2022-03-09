@@ -107,6 +107,7 @@ def c_1(circuit, params):
         circuit(params, wires=[i, i + 1])
     for i in range(1, 7, 2):
         circuit(params, wires=[i, i + 1])
+       
 
 
 def c_2(circuit, params):

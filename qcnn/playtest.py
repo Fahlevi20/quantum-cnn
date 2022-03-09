@@ -449,7 +449,7 @@ import matplotlib.pyplot as pl
 
 # %%
 path_experiments = f"/home/matt/dev/projects/quantum-cnn/experiments"
-exp_id = 302
+exp_id = 304
 result_data = gather_results_118_135(exp_id)
 # %%
 # %%
@@ -459,8 +459,8 @@ from collections import namedtuple
 # %%
 from reporting_functions import get_model_result_list
 
-exp_id = 203
-result_data = gather_results_118_135(exp_id, path_experiments=path_experiments)
+exp_id = 304
+# result_data = gather_results_118_135(exp_id, path_experiments=path_experiments)
 # display(get_experiment_config(path_experiments, exp_id))
 # pd.set_option("display.max_rows", 100)
 # result_table = get_result_table(
@@ -468,7 +468,10 @@ result_data = gather_results_118_135(exp_id, path_experiments=path_experiments)
 #     ["algorithm", "additional_structure_str", "selection_method", "target_pair_str"],
 #     "accuracy",
 # )
-# result_list = get_model_result_list(get_experiment_config(path_experiments, exp_id))
+result_list = get_model_result_list(get_experiment_config(path_experiments, exp_id))
+# %%
+a = 5
+result_list
 # %%
 pair_data = get_result_table_target_pairs(
     result_data, "algorithm", "target_pair_str", "accuracy"
@@ -845,17 +848,15 @@ samples_tfd = Samples(X_train_tfd, y_train_filtered, X_test_tfd, y_test_filtered
 # %%
 import seaborn as sns
 import matplotlib.pyplot as plt
-figsize=(16, 8)
+
+figsize = (16, 8)
 selection_method = "pca"
-target_pair = [0,1]
-var_exp = pipeline.named_steps[
-    "pca"
-].explained_variance_ratio_
+target_pair = [0, 1]
+var_exp = pipeline.named_steps["pca"].explained_variance_ratio_
 cum_var_exp = var_exp.cumsum()
 
 feature_names = [
-    f"{selection_method}-{i}"
-    for i in range(samples_tfd.X_test.shape[1])
+    f"{selection_method}-{i}" for i in range(samples_tfd.X_test.shape[1])
 ] + ["clothing"]
 plot_data = pd.DataFrame(
     np.c_[samples_tfd.X_test, samples_tfd.y_test],
@@ -899,7 +900,182 @@ with sns.axes_style("whitegrid"):
     axes[1].set_xlabel("Principal components")
 
 # %%
-fig.savefig(
-        f"/home/matt/dev/projects/quantum-cnn/reports/20220202/mnist_pca.svg"
+fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220202/mnist_pca.svg")
+# %%
+import numpy as np
+import qiskit
+from qiskit import IBMQ, Aer
+from qiskit.providers.aer.noise import NoiseModel
+from qiskit.providers.aer.noise import depolarizing_error
+from sklearn.utils.multiclass import type_of_target
+import pennylane as qml
+from pennylane.templates.embeddings import AngleEmbedding
+import torch
+from torch.autograd import Variable
+
+provider = IBMQ.load_account()
+DEVICE = qml.device("default.mixed", wires=8)
+
+
+@qml.qnode(DEVICE, interface="torch")
+def q_node(X, params):
+    AngleEmbedding(X, wires=range(8), rotation="Y")
+    qml.RY(params[0], wires=0)
+    qml.RY(params[1], wires=1)
+    qml.CNOT(wires=[0, 1])
+
+    return qml.probs(wires=0)
+
+
+def loss(params, X, y):
+    y_pred = [q_node(x, params) for x in X]
+    eps = np.finfo(float).eps
+    return -np.sum(np.c_[1 - y, y] * np.log(y_pred + eps))
+
+
+# Dummy dataset
+p = 8
+n = 3
+X = np.mgrid[0 : p * n].reshape(-1, p)
+y = np.array([int(np.average(x) < 0.5) for x in X])
+# Scale between 0 and pi/2
+X = X / np.max(X) * np.pi / 2
+
+# set a light
+X = torch.from_numpy(X)
+y = torch.from_numpy(y)
+phi = torch.tensor(.5, requires_grad=True)
+theta = torch.tensor(.1, requires_grad=True)
+params = [phi, theta]
+opt = torch.optim.Adam(params, lr=0.1)
+
+
+# %%
+# Run circuit
+import time
+t0 = time.time()
+
+y_pred = torch.stack([q_node(x, params) for x in X])
+eps = torch.finfo(float).eps
+loss = -torch.sum(torch.column_stack((1-y,y)) * torch.log(y_pred+eps))
+opt.zero_grad()
+#vloss = loss(params, X, y)
+loss.backward()
+opt.step()
+# loss(params, X, y)
+t1 = time.time()
+print(t1 - t0)
+# %%
+from collections import namedtuple
+import sklearn
+import numpy as np
+from data_utility import DataUtility
+from data_handler import (
+    save_json,
+    load_json,
+    get_2d_modelling_data,
+    get_image_data,
+    create_train_test_samples,
+)
+from preprocessing import get_preprocessing_pipeline
+import pennylane as qml
+
+
+def loss(cur_coef, X, y):
+    y_hat = [q_node(x, cur_coef) for x in X]
+    loss = 0
+    for l, p in zip(y, y_hat):
+        c_entropy = l * (anp.log(p[1])) + (1 - l) * anp.log(1 - p[1 - l])
+        loss = loss + c_entropy
+
+    return -1 * loss
+
+
+# Get data
+target = "label"
+path = "/home/matt/dev/projects/quantum-cnn/data/features_30_sec.csv"
+target_pair = ["pop", "classical"]
+Samples = namedtuple("Samples", ["X_train", "y_train", "X_test", "y_test"])
+scaler_method = "minmax"
+scaler_params = {"feature_range": [0, 1.5707963267948966]}
+selection_method = "pca"
+selection_params = {"n_components": 8}
+
+raw = get_2d_modelling_data(path, target)
+# ==== Data Utility for data specific manipulations ====#
+"""
+Datautility should be used only here to transform the data into a desirable train test set, then when the experiment is
+ran it is assumed that all "columns" and rows is as needs to be. This is specific data interaction from the user and should somehow
+be abstracted out TODO
+"""
+columns_to_remove = ["filename", "length"]
+data_utility = DataUtility(raw, target=target, default_subset="modelling")
+data_utility.update(columns_to_remove, "included", {"value": False, "reason": "manual"})
+X, y, _ = data_utility.get_samples(raw)
+# ==== End Data Utility ====#
+test_size = 0.3
+random_state = 42
+# Create test set
+samples = create_train_test_samples(
+    X, y, test_size=test_size, random_state=random_state
+)
+# =====
+# Filter samples
+train_filter = np.where(
+    (samples.y_train == target_pair[0]) | (samples.y_train == target_pair[1])
+)
+test_filter = np.where(
+    (samples.y_test == target_pair[0]) | (samples.y_test == target_pair[1])
+)
+X_train_filtered, X_test_filtered = (
+    samples.X_train.iloc[train_filter],
+    samples.X_test.iloc[test_filter],
+)
+y_train_filtered, y_test_filtered = (
+    samples.y_train.iloc[train_filter],
+    samples.y_test.iloc[test_filter],
+)
+
+y_train_filtered = np.where(y_train_filtered == target_pair[1], 1, 0)
+y_test_filtered = np.where(y_test_filtered == target_pair[1], 1, 0)
+
+samples_filtered = Samples(
+    X_train_filtered, y_train_filtered, X_test_filtered, y_test_filtered
+)
+# ===
+# pipeline
+pipeline = get_preprocessing_pipeline(
+    scaler_method,
+    scaler_params,
+    selection_method,
+    selection_params,
+)
+pipeline.fit(samples_filtered.X_train, samples_filtered.y_train)
+
+# Transform data
+X_train_tfd = pipeline.transform(samples_filtered.X_train)
+X_test_tfd = pipeline.transform(samples_filtered.X_test)
+samples_tfd = Samples(
+    X_train_tfd, samples_filtered.y_train, X_test_tfd, samples_filtered.y_test
+)
+# ===model
+X = samples_tfd.X_train
+y = samples_tfd.y_train
+opt = qml.NesterovMomentumOptimizer(stepsize=0.01)
+coefficients = np.random.randn(8)
+for it in range(25):
+    # Sample a batch from the training set
+    batch_train_index = np.random.randint(X.shape[0], size=25)
+    X_train_batch = X[batch_train_index]
+    y_train_batch = np.array(y)[batch_train_index]
+
+    # Run model and get cost
+    coefficients, cost_train = opt.step_and_cost(
+        lambda cur_coef: loss(cur_coef, X_train_batch, y_train_batch),
+        coefficients,
     )
+    print(cost_train)
+# %%
+
+
 # %%

@@ -3,48 +3,25 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": [
+    "configurations": [      
 
 
         {
-            "name": "Python: 108",
+            "name": "Python: 304",
             "type": "python",
             "request": "launch",
             "program": "qcnn/main.py",
             "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/108/experiment.json"]
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/304/experiment.json"]
         },
         {
-            "name": "Python: 109",
+            "name": "Python: 303",
             "type": "python",
             "request": "launch",
             "program": "qcnn/main.py",
             "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/109/experiment.json"]
-        },
-        {
-            "name": "Python: 110",
-            "type": "python",
-            "request": "launch",
-            "program": "qcnn/main.py",
-            "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/110/experiment.json"]
-        },
-        {
-            "name": "Python: 147",
-            "type": "python",
-            "request": "launch",
-            "program": "qcnn/main.py",
-            "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/147/experiment.json"]
-        },
-        {
-            "name": "Python: 200",
-            "type": "python",
-            "request": "launch",
-            "program": "qcnn/main.py",
-            "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/200/experiment.json"]
+            "justMyCode": false,
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/303/experiment.json"]
         }
     ]
 }

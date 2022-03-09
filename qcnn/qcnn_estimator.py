@@ -1,5 +1,9 @@
+import time
+import multiprocessing
+from functools import partial
 import numpy as np
 import autograd.numpy as anp
+from joblib import delayed, Parallel, wrap_non_picklable_objects
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from sklearn.utils.multiclass import type_of_target
@@ -8,6 +12,10 @@ import qiskit
 from qiskit import IBMQ, Aer
 from qiskit.providers.aer.noise import NoiseModel
 from qiskit.providers.aer.noise import depolarizing_error
+
+# from pennylane_cirq import ops
+import torch
+from torch import nn
 
 # from qiskit.providers.aer.noise.device import basic_device_noise_model
 from embedding import apply_encoding
@@ -25,15 +33,16 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
 
     def __init__(
         self,
-        n_iter=1,
+        n_iter=2,
         learning_rate=0.01,
         batch_size=2,
-        optimizer="nesterov",
+        optimizer="adam",
         cost="cross_entropy",
         encoding_type="Angle",
         encoding_kwargs={},
         layer_defintion=("U_5", "psatz1", [8, 1, "eo_even"]),
-        noise=0.01,
+        noise=.01,
+        seed=1,
     ):
         self.n_iter = n_iter
         self.learning_rate = learning_rate
@@ -44,6 +53,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         self.layer_defintion = layer_defintion
         self.encoding_kwargs = encoding_kwargs
         self.noise = noise
+        self.seed = seed
         # find place for these parameters set
         # params = qml_np.random.randn(qcnn_structure.paramater_count)
 
@@ -67,13 +77,6 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             Returns self.
         """
         X, y = check_X_y(X, y, ensure_2d=False)
-        # Set optimizer
-        if self.optimizer == "nesterov":
-            opt = qml.NesterovMomentumOptimizer(stepsize=self.learning_rate)
-        else:
-            raise NotImplementedError(
-                f"There is no implementation for optimizer: {self.optimizer}"
-            )
 
         # Construct Quantum Convolutional structure
         self.layer_dict_ = self._construct_layer_dict(self.layer_defintion)
@@ -81,10 +84,10 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         self._sort_layer_dict_by_order()
         # Get coefficient information
         self.coef_count_, self.coef_indices_ = self._get_coef_information()
-        # Initialize Coefficients TODO use state
-        self.coef_ = np.random.randn(self.coef_count_)
-
-        coefficients = self.coef_
+        # Initialize Coefficients
+        if self.seed:
+            torch.manual_seed(self.seed)
+        coefficients = torch.rand(self.coef_count_, requires_grad=True)        
         tmp_layer_info = [
             (layer_name, layer.layer_order)
             for layer_name, layer in self.layer_dict_.items()
@@ -101,29 +104,48 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         self.test_history_ = {"Iteration": [], "Cost": []}
         self.coef_history_ = {}
 
+        # Set optimizer
+        if self.optimizer == "nesterov":
+            opt = qml.NesterovMomentumOptimizer(stepsize=self.learning_rate)
+        elif self.optimizer == "adam":
+            opt = torch.optim.Adam([coefficients], lr=self.learning_rate)
+        else:
+            raise NotImplementedError(
+                f"There is no implementation for optimizer: {self.optimizer}"
+            )
+
         for it in range(self.n_iter):
             # Sample a batch from the training set
             batch_train_index = np.random.randint(X.shape[0], size=self.batch_size)
             X_train_batch = X[batch_train_index]
-            y_train_batch = np.array(y)[batch_train_index]
+            y_train_batch = torch.from_numpy(np.array(y)[batch_train_index])
 
             # Run model and get cost
-            coefficients, cost_train = opt.step_and_cost(
-                lambda current_coef: self.coefficient_based_loss(
-                    current_coef, X_train_batch, y_train_batch
-                ),
-                coefficients,
+            #t0 = time.time()
+            opt.zero_grad()
+            loss = self.coefficient_based_loss(
+                coefficients, X_train_batch, y_train_batch
             )
+            loss.backward()
+            opt.step()
+            # coefficients, cost_train = opt.step_and_cost(
+            #     lambda current_coef: self.coefficient_based_loss(
+            #         current_coef, X_train_batch, y_train_batch
+            #     ),
+            #     coefficients,
+            # )
+            #t1 = time.time()
+            #print(t1 - t0)
             self.train_history_["Iteration"].append(it)
-            self.train_history_["Cost"].append(cost_train)
+            self.train_history_["Cost"].append(loss)
             self.coef_history_[it] = coefficients
 
         best_iteration = self.train_history_["Iteration"][
-            np.argmin(self.train_history_["Cost"])
+            torch.argmin(torch.stack(self.train_history_["Cost"]))
         ]
         best_coefficients = self.coef_history_[best_iteration]
         # Set model coefficient corresponding to iteration that had lowest loss
-        self.coef_ = best_coefficients.numpy()
+        self.coef_ = best_coefficients.detach().numpy()
         self.is_fitted_ = True
         # `fit` should always return `self`
         return self
@@ -163,8 +185,17 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
     def predict_proba(self, X, require_tensor=False):
         if require_tensor:
             y_hat = [quantum_node(x, self) for x in X]
+            y_hat = torch.stack(y_hat)
+            # parallel
+            # pool = multiprocessing.Pool()
+            # # y_hat = pool.map(partial(qcnn_estimator.quantum_node,classifier=self), X)
+            # y_hat = Parallel(n_jobs=2)(
+            #     delayed(partial(quantum_node, classifier=self))(x) for x in X
+            # )
         else:
             y_hat = np.array([quantum_node(x, self).numpy() for x in X])
+            # pool = multiprocessing.Pool()
+            # y_hat = pool.map(quantum_node, [{"x": x, "classifier": self} for x in X])
         return y_hat
 
     def score(self, X, y, return_loss=False, **kwargs):
@@ -182,7 +213,12 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             # Then loss is returned and below expression ends up being score=loss
             score = (-1 * (not (return_loss)) + return_loss % 2) * loss
         elif self.cost == "cross_entropy":
-            loss = cross_entropy(y, y_pred)
+            # loss = cross_entropy(y, y_pred)
+            # TODO assuming here index 1 corresponds to p(x)=1
+            loss_fn = nn.BCELoss()
+            loss = loss_fn(y_pred[:,1], y.double())
+            # eps = torch.finfo(float).eps
+            # loss = -torch.sum(torch.column_stack((1 - y, y)) * torch.log(y_pred + eps))
             score = (-1 * (not (return_loss)) + return_loss % 2) * loss
 
         return score
@@ -278,29 +314,36 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         }
 
     def _evaluate(self):
+        i = 0
+        n = 100
         for layer_name, layer in self.layer_dict_.items():
-            if layer.layer_fn == None:
-                for wire_con in layer.wire_pattern:
-                    layer.circuit(self.coef_[self.coef_indices_[layer_name]], wire_con)
+            if i < n:
+                if layer.layer_fn == None:
+                    for wire_con in layer.wire_pattern:
+                        layer.circuit(
+                            self.coef_[self.coef_indices_[layer_name]], wire_con
+                        )
 
-            else:
-                layer.layer_fn(
-                    layer.circuit, self.coef_[self.coef_indices_[layer_name]]
-                )
-            # If modelling noise is required
-            if self.noise:
-                # if layers are defined through wire combos function rather than custom structure
-                if (
-                    type(self.layer_defintion) == type(tuple())
-                    and len(self.layer_defintion) == 3
-                ):
-                    # then the number of wires is contained in the layer definition
-                    n_wires = self.layer_defintion[2]["n_wires"]
                 else:
-                    # else assume 8 Qbits for now
-                    n_wires = 8
-                for q in range(n_wires):
-                    qml.DepolarizingChannel(self.noise, wires=q)
+                    layer.layer_fn(
+                        layer.circuit, self.coef_[self.coef_indices_[layer_name]]
+                    )
+                # If modelling noise is required
+                if self.noise:
+                    # if layers are defined through wire combos function rather than custom structure
+                    if (
+                        type(self.layer_defintion) == type(tuple())
+                        and len(self.layer_defintion) == 3
+                    ):
+                        # then the number of wires is contained in the layer definition
+                        n_wires = self.layer_defintion[2]["n_wires"]
+                    else:
+                        # else assume 8 Qbits for now
+                        n_wires = 8
+                    for q in range(n_wires):
+                        qml.DepolarizingChannel(self.noise, wires=q)
+                        # qml.Depolarize(self.noise, wires=q)
+            i = i + 1
 
     def _get_coef_information(self):
         total_coef_count = 0
@@ -332,17 +375,17 @@ class Layer:
 
 
 # TODO difference between mixed and qubit for noise modelling?
+# DEVICE = qml.device("default.qubit", wires=8)
+# DEVICE = qml.device('qulacs.simulator', wires=8)
 DEVICE = qml.device("default.mixed", wires=8)
+# provider = IBMQ.load_account()
 
 
-@qml.qnode(DEVICE)
+@qml.qnode(DEVICE, interface='torch')
 def quantum_node(X, classifier):
     if getattr(classifier, "numpy", False):
         # If classifier needs to be deserialized
         classifier = classifier.numpy()
-    else:
-        print("Classifier didn't have to be converted .numpy()")
-
     apply_encoding(
         X,
         encoding_type=classifier.encoding_type,

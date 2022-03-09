@@ -18,7 +18,7 @@ import tensorflow as tf
 import IPython.display as ipd
 import matplotlib.pyplot as plt
 import librosa.display
-import simpleaudio as sa
+# import simpleaudio as sa
 import wave
 from data_utility import DataUtility
 from sklearn import preprocessing
@@ -329,143 +329,52 @@ def run_preprocess_experiment(config, X, y, data_utility, figsize=(8, 8)):
                             )
                             perm_it = perm_it + 1
                         fig.tight_layout()
-                        # fig.show()
-                    # pipe_X_df = pd.DataFrame(
-                    #     pipe_X,
-                    #     columns=feature_names,
-                    #     index=X.index,
-                    # )
-                    # pipe_Xy_df = pipe_X_df.join(y)
-                    # plot_top2d(
-                    #     fig, axs[0], pipe_Xy_df, tmp_config, feature_names, data_utility
-                    # )
-                    # fig.tight_layout()
-                    # fig.show()
-                    # plot_top3d(pipe_Xy_df, tmp_config, data_utility)
 
 
 # %%
-# data_path = "../data/archive/Data/features_30_sec.csv"
-# target = "label"
-# raw = pd.read_csv(data_path)
-# data_utility = DataUtility(raw, target=target, default_subset="modelling")
-# columns_to_remove = ["filename", "length"]
-# data_utility.update(columns_to_remove, "included", {"value": False, "reason": "manual"})
+def get_rnd_audio_sample(data, class_type, target="label"):
+    idx = data.loc[class_type[class_type == True].sample(1).index].index
+    filename, genre = data.loc[idx, "filename"].iloc[0], data.loc[idx, target].iloc[0]
+    return filename, genre
 
-# # %%
-# data_utility.get(filter_dict={"subset": "modelling"})
-# # %% Split
-# X, y, Xy = data_utility.get_samples(raw)
 
-# X_train, X_test, y_train, y_test = train_test_split(
-#     X,
-#     y,
-#     test_size=0.3,
-#     random_state=41,
-# )
-# data_utility.row_sample["train"] = X_train.index
-# data_utility.row_sample["test"] = X_test.index
+def plot_spectogram(audio_path, filename, genre):
+    audio_ts, sample_rate = librosa.load(f"{audio_path}/{genre}/{filename}")
+    X = librosa.stft(audio_ts)
+    Xdb = librosa.amplitude_to_db(abs(X))
+    plt.figure(figsize=(20, 10))
+    librosa.display.specshow(Xdb, sr=sample_rate, x_axis="time", y_axis="log")
+    plt.colorbar()
 
-# target_levels = raw[data_utility.target].unique()
-# plt_id = 1
-# config = {
-#     "scaler": {
-#         "method": ["standard"],
-#         "standard_params": {},
-#         "minmax_params": {"feature_range": [(0, 1), (-1, 1), (0, np.pi / 2)]},
-#     },
-#     "feature_selection": {
-#         "method": ["pca"],
-#         "pca_params": {"n_components": [8]},
-#         "tree_params": {"max_features": [8], "n_estimators": [50]},
-#     },
-# }
-# # %%
-# run_preprocess_experiment(config, X, y, data_utility, figsize=(6, 4))
-# https://stackoverflow.com/questions/50452455/plt-show-does-nothing-when-used-for-the-second-time
+
+model_name = "pca-8-Angle-U_5"
+data_path = "../data/features_30_sec.csv"
+audio_path = "../data/genres_original"
+target = "label"
+classes = ["classical", "pop"]
+
+genre = "classical"
+filename = f"{genre}.00005.wav"
+
+audio_ts, sample_rate = librosa.load(f"{audio_path}/{genre}/{filename}", sr=44100)
+
+# First second
+print(audio_ts[0:sample_rate])
 # %%
-# pca_X = pipeline.fit_transform(X)
-# # %%
-# print(pipeline.steps[1][1].explained_variance_ratio_)
-
-# pc_X_df = pd.DataFrame(
-#     pca_X, columns=[f"pc-{i}" for i in range(pca_X.shape[1])], index=X.index
-# )
-# pc_Xy_df = pc_X_df.join(y)
-# # %%
+librosa.display.waveshow(audio_ts, sr=sample_rate)
 
 
-# #%%
+# %%
+X = librosa.stft(audio_ts)
+Xdb = librosa.amplitude_to_db(abs(X))
+plt.figure(figsize=(14, 5))
+librosa.display.specshow(Xdb, sr=sample_rate, x_axis="time", y_axis="log")
+plt.colorbar()
 
-# # %%
-# label_dict = {1: "Iris-Setosa", 2: "Iris-Versicolor", 3: "Iris-Virgnica"}
-
-# feature_dict = {
-#     0: "sepal length [cm]",
-#     1: "sepal width [cm]",
-#     2: "petal length [cm]",
-#     3: "petal width [cm]",
-# }
-
-# with plt.style.context("seaborn-whitegrid"):
-#     plt.figure(figsize=(8, 6))
-#     for cnt in range(4):
-#         plt.subplot(2, 2, cnt + 1)
-#         for lab in ("Iris-setosa", "Iris-versicolor", "Iris-virginica"):
-#             plt.hist(
-#                 X[y == lab, cnt],
-#                 label=lab,
-#                 bins=10,
-#                 alpha=0.3,
-#             )
-#         plt.xlabel(feature_dict[cnt])
-#     plt.legend(loc="upper right", fancybox=True, fontsize=8)
-
-#     plt.tight_layout()
-#     plt.show()
-# # %%
-
-# # %%
-
-# # %%
-# def get_rnd_audio_sample(data, class_type, target="label"):
-#     idx = data.loc[class_type[class_type == True].sample(1).index].index
-#     filename, genre = data.loc[idx, "filename"].iloc[0], data.loc[idx, target].iloc[0]
-#     return filename, genre
-
-
-# def plot_spectogram(audio_path, filename, genre):
-#     audio_ts, sample_rate = librosa.load(f"{audio_path}/{genre}/{filename}")
-#     X = librosa.stft(audio_ts)
-#     Xdb = librosa.amplitude_to_db(abs(X))
-#     plt.figure(figsize=(20, 10))
-#     librosa.display.specshow(Xdb, sr=sample_rate, x_axis="time", y_axis="log")
-#     plt.colorbar()
-
-
-# model_name = "pca-8-Angle-U_5"
-# data_path = "../data/archive/Data/features_30_sec.csv"
-# audio_path = "../data/archive/Data/genres_original"
-# target = "label"
-# classes = ["classical", "pop"]
-
-# genre = "classical"
-# filename = f"{genre}.00005.wav"
-
-# audio_ts, sample_rate = librosa.load(f"{audio_path}/{genre}/{filename}", sr=44100)
-
-# plt.figure(figsize=(14, 5))
-# print(sample_rate)
-# librosa.display.waveplot(audio_ts, sr=sample_rate)
-
-
-# # %%
-# X = librosa.stft(audio_ts)
-# Xdb = librosa.amplitude_to_db(abs(X))
-# plt.figure(figsize=(14, 5))
-# librosa.display.specshow(Xdb, sr=sample_rate, x_axis="time", y_axis="log")
-# plt.colorbar()
-
+# %%
+mel_feat = librosa.feature.melspectrogram(y=audio_ts, sr=sample_rate)
+# all_wave.append(np.expand_dims(mel_feat, axis=2))
+# all_label.append(label)
 # # %%
 # librosa.output.write_wav(f"{audio_path}/{genre}/{filename}", audio_ts, sample_rate)
 # # %%
@@ -474,46 +383,9 @@ def run_preprocess_experiment(config, X, y, data_utility, figsize=(8, 8)):
 # play_obj = wave_obj.play()
 # # %%
 # play_obj.stop()
-
-
-# #%%
-# def load_audio_data(path, classes, target):
-#     Xy = pd.read_csv(path)
-
-#     # returns "classical|pop" etc depending on class selection
-#     filter_pat = "|".join(genre for genre in classes)
-#     indices = Xy["filename"].str.contains(filter_pat)
-
-#     # Select only data for relevant classes
-#     Xy = Xy.loc[indices, :].copy()
-
-#     Xy.drop(["filename", "length"], axis="columns", inplace=True)
-#     Xy.head()
-#     # %%
-#     # Split data
-#     y = Xy[target]
-#     X = Xy.loc[:, Xy.columns != target]
-#     # %%
-#     # Normalize
-#     cols = X.columns
-#     min_max_scaler = preprocessing.MinMaxScaler()
-#     np_scaled = min_max_scaler.fit_transform(X)
-
-#     # new data frame with the new scaled data.
-#     X = pd.DataFrame(np_scaled, columns=cols)
-
-#     # Split
-#     X_train, X_test, y_train, y_test = train_test_split(
-#         X, y, test_size=0.3, random_state=42
-#     )
-#     #%%
-#     # X_train = tf.image.resize(X_train[:], (784, 1)).numpy()
-#     # X_test = tf.image.resize(X_test[:], (784, 1)).numpy()
-#     # X_train, X_test = tf.squeeze(X_train), tf.squeeze(X_test)
-#     n_features = 32
-#     pca = PCA(n_features)
-
-#     X_train = pca.fit_transform(X_train)
-#     X_test = pca.transform(X_test)
-
-#     return X_train, y_train, X_test, y_test
+import sklearn
+mel_feat = sklearn.preprocessing.scale(mel_feat, axis=1)
+plt.figure(figsize=(14, 5))
+librosa.display.specshow(mel_feat, sr=sample_rate, x_axis='time')
+plt.colorbar()
+# %%
