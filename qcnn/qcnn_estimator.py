@@ -8,10 +8,11 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 from sklearn.utils.multiclass import type_of_target
 import pennylane as qml
-import qiskit
-from qiskit import IBMQ, Aer
-from qiskit.providers.aer.noise import NoiseModel
-from qiskit.providers.aer.noise import depolarizing_error
+
+# import qiskit
+# from qiskit import IBMQ, Aer
+# from qiskit.providers.aer.noise import NoiseModel
+# from qiskit.providers.aer.noise import depolarizing_error
 from data_handler import save_json
 
 # from pennylane_cirq import ops
@@ -34,7 +35,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
 
     def __init__(
         self,
-        n_iter=24,
+        n_iter=25,
         learning_rate=0.01,
         batch_size=25,
         optimizer="adam",
@@ -42,7 +43,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         encoding_type="Angle",
         encoding_kwargs={},
         layer_defintion=("U_5", "psatz1", [8, 1, "eo_even"]),
-        noise=0.01,
+        noise=None,
         seed=1,
     ):
         self.n_iter = n_iter
@@ -117,7 +118,24 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
 
         for it in range(self.n_iter):
             # Sample a batch from the training set
-            batch_train_index = np.random.randint(X.shape[0], size=self.batch_size)
+            # TODO oversampling manually implemented but should be configureable
+            # batch_train_index = np.random.randint(X.shape[0], size=self.batch_size)
+            # X_train_batch = X[batch_train_index]
+            # y_train_batch = torch.from_numpy(np.array(y)[batch_train_index])
+            # randomly sample y==1 values
+            batch_y1 = np.where(y == 1)[0][
+                np.random.randint(
+                    np.where(y == 1)[0].shape[0], size=self.batch_size // 2
+                )
+            ]
+            # randomly sample y==0 values
+            batch_y0 = np.where(y == 0)[0][
+                np.random.randint(
+                    np.where(y == 0)[0].shape[0],
+                    size=self.batch_size - self.batch_size // 2,
+                )
+            ]
+            batch_train_index = np.append(batch_y1, batch_y0)
             X_train_batch = X[batch_train_index]
             y_train_batch = torch.from_numpy(np.array(y)[batch_train_index])
 
@@ -129,13 +147,15 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             )
             loss.backward()
             opt.step()
+            t1 = time.time()
+            # print(t1 - t0)
             # coefficients, cost_train = opt.step_and_cost(
             #     lambda current_coef: self.coefficient_based_loss(
             #         current_coef, X_train_batch, y_train_batch
             #     ),
             #     coefficients,
             # )
-            t1 = time.time()
+            # t1 = time.time()
             # print(t1 - t0)
             self.train_history_["Iteration"].append(it)
             self.train_history_["Cost"].append(loss.detach().numpy().tolist())
@@ -151,7 +171,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             )
 
         best_iteration = self.train_history_["Iteration"][
-            torch.argmin(torch.stack(self.train_history_["Cost"]))
+            np.argmin(self.train_history_["Cost"])
         ]
         best_coefficients = self.coef_history_[best_iteration]
         # Set model coefficient corresponding to iteration that had lowest loss
@@ -226,7 +246,10 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             # loss = cross_entropy(y, y_pred)
             # TODO assuming here index 1 corresponds to p(x)=1
             loss_fn = nn.BCELoss()
-            loss = loss_fn(y_pred[:, 1], y.double())
+            if type(y) == torch.Tensor:
+                loss = loss_fn(y_pred[:, 1], y.double())
+            else:
+                loss = loss_fn(torch.tensor(y_pred[:, 1]), torch.tensor(y).double())
             # eps = torch.finfo(float).eps
             # loss = -torch.sum(torch.column_stack((1 - y, y)) * torch.log(y_pred + eps))
             score = (-1 * (not (return_loss)) + return_loss % 2) * loss
@@ -387,7 +410,7 @@ class Layer:
 # TODO difference between mixed and qubit for noise modelling?
 # DEVICE = qml.device("default.qubit", wires=8)
 # DEVICE = qml.device('qulacs.simulator', wires=8)
-DEVICE = qml.device("default.mixed", wires=8)
+DEVICE = qml.device("default.qubit", wires=8)
 # provider = IBMQ.load_account()
 
 

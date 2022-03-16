@@ -32,34 +32,41 @@ def main(args):
 
         test_size = config["data"]["sampling"].get("test_size", 0.3)
         random_state = config["data"]["sampling"].get("random_state", 42)
+        kwargs = config["data"].get("kwargs", {})
 
         samples = get_image_data(
-            path, set_name=set_name, test_size=test_size, random_state=test_size
+            path,
+            set_name=set_name,
+            test_size=test_size,
+            random_state=random_state,
+            **kwargs,
         )
 
-        np.savetxt(
-            f"{config.get('path')}/{config.get('ID')}/y_test.csv",
+        np.save(
+            f"{config.get('path')}/{config.get('ID')}/y_test",
             samples.y_test,
-            delimiter=",",
         )
         # np.savetxt(f"{config.get('path')}/{config.get('ID')}/X_test.csv", samples.X_test, delimiter=",")
     else:
         # assume data is 2d
         target = config["data"].get("target_column")
         path = config["data"].get("path")
+        colnames = config["data"].get("column_names", None)
         # TODO rename function to something more generic like read data
-        raw = get_2d_modelling_data(path, target)
+        raw = get_2d_modelling_data(path, colnames)
         # ==== Data Utility for data specific manipulations ====#
         """
         Datautility should be used only here to transform the data into a desirable train test set, then when the experiment is
         ran it is assumed that all "columns" and rows is as needs to be. This is specific data interaction from the user and should somehow
         be abstracted out TODO
         """
+        # This was for music data
         columns_to_remove = ["filename", "length"]
         data_utility = DataUtility(raw, target=target, default_subset="modelling")
         data_utility.update(
             columns_to_remove, "included", {"value": False, "reason": "manual"}
         )
+        # data_utility = DataUtility(raw, target=target, default_subset="modelling")
         X, y, _ = data_utility.get_samples(raw)
         # ==== End Data Utility ====#
         test_size = config["data"]["sampling"].get("test_size", 0.3)

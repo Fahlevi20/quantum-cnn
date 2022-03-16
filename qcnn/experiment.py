@@ -8,7 +8,7 @@ import numpy as np
 from collections import namedtuple
 
 from sklearn import feature_selection
-import tensorflow as tf
+# import tensorflow as tf
 import circuit_presets
 
 from quantum_models import train_quantum
@@ -219,10 +219,10 @@ def run_experiment(config, samples):
             ):
                 scaler_methods = config["preprocessing"][model_type][embedding_type][
                     "scaler"
-                ].get("method")
+                ].get("method",{})
                 selection_methods = config["preprocessing"][model_type][embedding_type][
                     "feature_selection"
-                ].get("method")
+                ].get("method",{})
                 custom_steps = config["preprocessing"][model_type][embedding_type].get(
                     "custom", None
                 )

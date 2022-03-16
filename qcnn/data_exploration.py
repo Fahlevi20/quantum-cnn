@@ -12,12 +12,14 @@ import librosa
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
-import tensorflow as tf
+
+# import tensorflow as tf
 
 
 import IPython.display as ipd
 import matplotlib.pyplot as plt
 import librosa.display
+
 # import simpleaudio as sa
 import wave
 from data_utility import DataUtility
@@ -159,7 +161,7 @@ def plot_var_exp(fig, ax, pipeline, selection_method):
             label="cumulative explained variance",
         )
         a = ax.set_ylabel("Explained variance ratio")
-        b =ax.set_xlabel("Principal components")
+        b = ax.set_xlabel("Principal components")
         # f#ig.legend(loc="best")
 
 
@@ -349,20 +351,93 @@ def plot_spectogram(audio_path, filename, genre):
 
 model_name = "pca-8-Angle-U_5"
 data_path = "../data/features_30_sec.csv"
-audio_path = "../data/genres_original"
-target = "label"
 classes = ["classical", "pop"]
-
+# %%
+target = "label"
+audio_path = "/home/matt/dev/projects/quantum-cnn/data/genres_original"
+image_path = "/home/matt/dev/projects/quantum-cnn/data/genres_image_1"
 genre = "classical"
-filename = f"{genre}.00005.wav"
+filename = f"{genre}.00005"
+ext = "wav"
+sample_rate = 21500
+audio_ts, sample_rate = librosa.load(
+    f"{audio_path}/{genre}/{filename}.{ext}", sr=sample_rate
+)
+# %%
+# trim
+n_fft = 2048
+hop_length = 2048
+n_mels = 8
+audio_ts, _ = librosa.effects.trim(audio_ts)
+# First 3 seconds
+audio_ts = audio_ts[0 : sample_rate * 3]
+mel_spec = librosa.feature.melspectrogram(
+    y=audio_ts,
+    sr=sample_rate,
+    n_fft=n_fft,
+    hop_length=hop_length,
+    n_mels=n_mels,
+    fmax=8000,
+)
+mel_sdb = librosa.power_to_db(mel_spec, ref=np.max)
 
-audio_ts, sample_rate = librosa.load(f"{audio_path}/{genre}/{filename}", sr=44100)
+# %% display
+# For plotting headlessly
 
-# First second
-print(audio_ts[0:sample_rate])
+fig, ax = plt.subplots()
+img = librosa.display.specshow(
+    mel_sdb, sr=sample_rate, hop_length=hop_length, x_axis="time", y_axis="mel"
+)
+plt.axis('off')
+fig.colorbar(img, ax=ax)
+
+# plt.colorbar(format='%+2.0f dB')
+print(mel_sdb.shape)
+# fig.savefig(f"{image_path}/{filename.replace('.','_')}.png")
+
+# %% ml data
+# %%
+def scale_minmax(X, min=0.0, max=1.0):
+    X_std = (X - X.min()) / (X.max() - X.min())
+    X_scaled = X_std * (max - min) + min
+    return X_scaled
+
+
+img = scale_minmax(mel_sdb, 0, 255).astype(np.uint8)
+img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
+img = 255 - img  # invert. make black==more energy
+plt.imshow(img)
+# %%
+import torch
+import torchvision.transforms as T
+
+
+def preprocess(batch):
+    transforms = T.Compose(
+        [
+            T.ToPILImage(),
+            T.Resize(size=(256, 256)),
+        ]
+    )
+    batch = transforms(batch)
+    return batch
+
+
+a = preprocess(torch.as_tensor(mel_sdb))
+# %%
+S = librosa.feature.melspectrogram(y=audio_ts, sr=sample_rate, n_mels=128, fmax=8000)
+
+fig, ax = plt.subplots()
+S_dB = librosa.power_to_db(S, ref=np.max)
+img = librosa.display.specshow(
+    S_dB, x_axis="time", y_axis="mel", sr=sample_rate, fmax=8000, ax=ax
+)
+fig.colorbar(img, ax=ax, format="%+2.0f dB")
+ax.set(title="Mel-frequency spectrogram")
+
 # %%
 librosa.display.waveshow(audio_ts, sr=sample_rate)
-
+mel_feat = librosa.feature.melspectrogram(y=audio_ts, sr=sample_rate)
 
 # %%
 X = librosa.stft(audio_ts)
@@ -383,9 +458,105 @@ mel_feat = librosa.feature.melspectrogram(y=audio_ts, sr=sample_rate)
 # play_obj = wave_obj.play()
 # # %%
 # play_obj.stop()
+# %%
 import sklearn
+
 mel_feat = sklearn.preprocessing.scale(mel_feat, axis=1)
 plt.figure(figsize=(14, 5))
-librosa.display.specshow(mel_feat, sr=sample_rate, x_axis='time')
+librosa.display.specshow(mel_feat, sr=sample_rate, x_axis="time")
 plt.colorbar()
+# %%
+# Default FFT window size
+n_fft = 2048  # FFT window size
+hop_length = (
+    512  # number audio of frames between STFT columns (looks like a good default
+)
+y, _ = librosa.effects.trim(audio_ts)
+mel_s = librosa.feature.melspectrogram(y=y, sr=sample_rate)
+mel_sdb = librosa.amplitude_to_db(mel_s, ref=np.max)
+plt.figure(figsize=(16, 6))
+librosa.display.specshow(
+    mel_sdb,
+    sr=sample_rate,
+    hop_length=hop_length,
+    x_axis="time",
+    y_axis="log",
+    cmap="cool",
+)
+plt.colorbar()
+plt.title("Metal Mel Spectrogram", fontsize=23)
+
+# %% Tutorial
+# Convert mp3 to wav
+from os import path
+from pydub import AudioSegment
+
+path = "/home/matt/dev/projects/quantum-cnn/data"
+filename = "whale_song.mp3"
+
+sound = AudioSegment.from_mp3(f"{path}/{filename}")
+sound.export(f"{path}/whale.wav", format="wav")
+# %%
+import librosa
+import librosa.display
+
+path = "/home/matt/dev/projects/quantum-cnn/data"
+filename = "whale.wav"
+y, sr = librosa.load(f"{path}/{filename}")
+whale_song, _ = librosa.effects.trim(y)
+librosa.display.waveshow(whale_song, sr=sr)
+# %% Fourier transform
+import numpy as np
+import matplotlib.pyplot as plt
+
+n_fft = 2048
+D = np.abs(librosa.stft(whale_song[:n_fft], n_fft=n_fft, hop_length=n_fft + 1))
+plt.plot(D)
+# %%
+# use full song
+hop_length = 512
+D = np.abs(librosa.stft(whale_song, n_fft=n_fft, hop_length=hop_length))
+librosa.display.specshow(D, sr=sr, x_axis="time", y_axis="linear")
+plt.colorbar()
+# %%
+DB = librosa.amplitude_to_db(D, ref=np.max)
+librosa.display.specshow(DB, sr=sr, hop_length=hop_length, x_axis="time", y_axis="log")
+plt.colorbar(format="%+2.0f dB")
+
+# %%
+n_mels = 128
+mel = librosa.filters.mel(sr=sr, n_fft=n_fft, n_mels=n_mels)
+# %%
+plt.figure(figsize=(15, 4))
+
+plt.subplot(1, 3, 1)
+librosa.display.specshow(mel, sr=sr, hop_length=hop_length, x_axis="linear")
+plt.ylabel("Mel filter")
+plt.colorbar()
+plt.title("1. Our filter bank for converting from Hz to mels.")
+
+plt.subplot(1, 3, 2)
+mel_10 = librosa.filters.mel(sr=sr, n_fft=n_fft, n_mels=10)
+librosa.display.specshow(mel_10, sr=sr, hop_length=hop_length, x_axis="linear")
+plt.ylabel("Mel filter")
+plt.colorbar()
+plt.title("2. Easier to see what is happening with only 10 mels.")
+
+plt.subplot(1, 3, 3)
+idxs_to_plot = [0, 9, 49, 99, 127]
+for i in idxs_to_plot:
+    plt.plot(mel[i])
+plt.legend(labels=[f"{i+1}" for i in idxs_to_plot])
+plt.title("3. Plotting some triangular filters separately.")
+
+plt.tight_layout()
+# %%
+S = librosa.feature.melspectrogram(
+    whale_song, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels
+)
+S_DB = librosa.power_to_db(S, ref=np.max)
+librosa.display.specshow(
+    S_DB, sr=sr, hop_length=hop_length, x_axis="time", y_axis="mel"
+)
+plt.colorbar(format="%+2.0f dB")
 # %%

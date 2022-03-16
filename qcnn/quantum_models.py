@@ -97,13 +97,13 @@ def train_quantum(
             model = OneVsOneClassifier(model)
         elif classification_type == "ova":
             model = OneVsRestClassifier(model)
-    # clf = GridSearchCV(
-    #     model, param_grid, n_jobs=n_jobs, cv=cv_folds
-    # )  # error_score="raise" <- for debugging
-    clf = model
+    clf = GridSearchCV(
+        model, param_grid, n_jobs=n_jobs, cv=cv_folds
+    )  # error_score="raise" <- for debugging
+    # clf = model
     clf.fit(samples_tfd.X_train, samples_tfd.y_train)
 
-    best_estimator = clf#.best_estimator_
+    best_estimator = clf.best_estimator_
     # Get predictions
     y_hat = best_estimator.predict(samples_tfd.X_test)
     cf_matrix = confusion_matrix(samples_tfd.y_test, y_hat)
