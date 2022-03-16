@@ -73,20 +73,19 @@ class ImageNormalize(BaseEstimator, TransformerMixin):
     Normalizes an image
     """
 
-    def __init__(self, scaling_factor=None):
-        self.scaling_factor = scaling_factor
+    def __init__(self, min=0, max=1):
+        self.min = min
+        self.max = max
 
     def fit(self, X, y=None):
         """returns itself"""
-        if self.scaling_factor == None:
-            # assume image contains values 0 - 255
-            self.scaling_factor = 255
         return self
 
     def transform(self, X, y=None):
         """Normalizes image between 0 and 1"""
-        X_norm = X / self.scaling_factor
-        return X_norm
+        X_std = (X - X.min()) / (X.max() - X.min())
+        X_scaled = X_std * (self.max - self.min) + self.min
+        return X_scaled
 
 
 def filter_embedding_options(embedding_list):
@@ -245,13 +244,13 @@ def apply_preprocessing(
         X_test_tfd = pipeline.transform(samples_filtered.X_test)
 
         # TODO improve / automate, this is temporary for the large image dataset.
-        batch_train_index = np.random.randint(X_train_tfd.shape[0], size=1000)
-        X_train_tfd = X_train_tfd[batch_train_index]
-        y_train_filtered = np.array(y_train_filtered)[batch_train_index]
+        # batch_train_index = np.random.randint(X_train_tfd.shape[0], size=1000)
+        # X_train_tfd = X_train_tfd[batch_train_index]
+        # y_train_filtered = np.array(y_train_filtered)[batch_train_index]
 
-        batch_test_index = np.random.randint(X_test_tfd.shape[0], size=500)
-        X_test_tfd = X_test_tfd[batch_test_index]
-        y_test_filtered = np.array(y_test_filtered)[batch_test_index]
+        # batch_test_index = np.random.randint(X_test_tfd.shape[0], size=500)
+        # X_test_tfd = X_test_tfd[batch_test_index]
+        # y_test_filtered = np.array(y_test_filtered)[batch_test_index]
 
         samples_tfd = Samples(
             X_train_tfd, y_train_filtered, X_test_tfd, y_test_filtered

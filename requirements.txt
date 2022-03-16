@@ -1,14 +1,14 @@
 pennylane
-pennylane-forest
-pennylane-qiskit
-tensorflow
-# torch
+# pennylane-forest
+# pennylane-qiskit
+# tensorflow
+torch
 sklearn
-# torchvision 
-# torchaudio
-keras
-qiskit
-qiskit-aer
+torchvision 
+torchaudio
+# keras
+# qiskit
+# qiskit-aer
 pylatexenc
 networkx
 
@@ -17,6 +17,7 @@ networkx
 librosa
 simpleaudio # sudo apt-get install -y python3-dev libasound2-dev <- dependancy for system
 wave
+pydub
 
 # other
 tabulate

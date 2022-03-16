@@ -351,7 +351,7 @@ def check_filter_on_list(filter_list, check_list):
         return len(set(filter_list) & set(check_list)) > 0
 
 
-def gather_results_118_135(
+def gather_results_118_135_deprecated(
     exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"
 ):
     path_single_experiment = f"{path_experiments}/{exp_id}"
@@ -428,7 +428,12 @@ def gather_results_118_135(
         tmp_result = model_configuration._asdict()
         tmp_result["model_name"] = model_name
 
-        tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
+        if not(type(model_configuration.target_pair[0])==str):
+            # if target pair are ints
+            tmp_result["target_pair_str"] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
+        else:
+            tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
+
         tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][
             clf.best_index_
         ]
@@ -929,7 +934,11 @@ def gather_results_118_135(
         tmp_result = model_configuration._asdict()
         tmp_result["model_name"] = model_name
 
-        tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
+        if not(type(model_configuration.target_pair[0])==str):
+            # if target pair are ints
+            tmp_result["target_pair_str"] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
+        else:
+            tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
         if model_configuration.additional_structure:
             tmp_result[
                 "additional_structure_str"
@@ -948,6 +957,121 @@ def gather_results_118_135(
             clf.best_index_
         ]
         tmp_result["params"] = clf.cv_results_["params"][clf.best_index_]
+
+        tmp_result["accuracy"] = accuracy
+        tmp_result["precision"] = precision
+        tmp_result["recall"] = recall
+        tmp_result["f1"] = fscore
+        tmp_result["loss_train_history"] = None  # set for quantum
+        result_data = result_data.append(tmp_result, ignore_index=True)
+
+    return result_data.copy()
+
+def gather_result_list_1000(
+    exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"
+):
+    path_single_experiment = f"{path_experiments}/{exp_id}"
+    model_names = get_model_names(path_single_experiment)
+
+    Results = namedtuple(
+        "Results",
+        [
+            "model_name",
+            "y_test_hat",
+            "clf",
+            "model_configuration",
+            "samples_tfd",
+            "pipeline",
+        ],
+    )
+    result_list = []
+    for model_name in model_names:
+        y_test_hat = pd.read_csv(
+            f"{path_single_experiment}/{model_name}-yhat.csv", index_col=0
+        )
+        clf = load(f"{path_single_experiment}/{model_name}-clf_results.joblib")
+        model_configuration = load(
+            f"{path_single_experiment}/{model_name}-model_configuration.joblib"
+        )
+        samples_tfd = load(f"{path_single_experiment}/{model_name}-samples_tfd.joblib")
+        pipeline = load(f"{path_single_experiment}/{model_name}-pipeline.joblib")
+        result_list = result_list + [
+            Results(
+                model_name,
+                y_test_hat=y_test_hat,
+                clf=clf,
+                model_configuration=model_configuration,
+                samples_tfd=samples_tfd,
+                pipeline=pipeline,
+            )
+        ]
+    return result_list
+
+def gather_resultdf_1000(result_list):
+    result_data = pd.DataFrame(
+        {
+            "model_name": [],
+            "model_type": [],
+            "algorithm": [],
+            "classification_type": [],
+            "embedding_type": [],
+            "scaler_method": [],
+            "scaler_param_str": [],
+            "selection_method": [],
+            "selection_param_str": [],
+            "target_pair": [],
+            "additional_structure": [],
+            "additional_structure_str": [],
+            "wire_config": [],
+            "wire_config_str": [],
+            "target_pair_str": [],
+            "mean_test_score": [],
+            "std_test_score": [],
+            "params": [],
+            "accuracy": [],
+            "precision": [],
+            "recall": [],
+            "f1": [],
+            "loss_train_history": [],
+        }
+    )
+    for result in result_list:
+        y_test_hat = result.y_test_hat
+        clf = result.clf
+        model_configuration = result.model_configuration
+        samples_tfd = result.samples_tfd
+        model_name = result.model_name
+
+        precision, recall, fscore, support = precision_recall_fscore_support(
+            samples_tfd.y_test, y_test_hat, average="binary"  # TODO multiclass
+        )
+        accuracy = accuracy_score(samples_tfd.y_test, y_test_hat)
+        tmp_result = model_configuration._asdict()
+        tmp_result["model_name"] = model_name
+
+        if not(type(model_configuration.target_pair[0])==str):
+            # if target pair are ints
+            tmp_result["target_pair_str"] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
+        else:
+            tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
+        if model_configuration.additional_structure:
+            tmp_result[
+                "additional_structure_str"
+            ] = f"{model_configuration.additional_structure[0]}_{model_configuration.additional_structure[1]}_{model_configuration.additional_structure[2]}"
+            tmp_result["wire_config"] = model_configuration.additional_structure[2]
+            tmp_result["wire_config_str"] = "-".join(
+                [
+                    str(item)
+                    for item in model_configuration.additional_structure[2].values()
+                ]
+            )
+        # tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][
+        #     clf.best_index_
+        # ]
+        # tmp_result["std_test_score"] = clf.cv_results_["std_test_score"][
+        #     clf.best_index_
+        # ]
+        # tmp_result["params"] = clf.cv_results_["params"][clf.best_index_]
 
         tmp_result["accuracy"] = accuracy
         tmp_result["precision"] = precision

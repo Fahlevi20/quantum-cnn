@@ -10,9 +10,9 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import confusion_matrix
 from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
 
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.models import Sequential
-from keras.layers import Dense, Conv1D, MaxPool1D
+# from keras.wrappers.scikit_learn import KerasClassifier
+# from keras.models import Sequential
+# from keras.layers import Dense, Conv1D, MaxPool1D
 
 from preprocessing import apply_preprocessing
 from simple_estimator import Simple_Classifier
