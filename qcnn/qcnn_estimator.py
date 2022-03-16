@@ -12,6 +12,7 @@ import qiskit
 from qiskit import IBMQ, Aer
 from qiskit.providers.aer.noise import NoiseModel
 from qiskit.providers.aer.noise import depolarizing_error
+from data_handler import save_json
 
 # from pennylane_cirq import ops
 import torch
@@ -33,15 +34,15 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
 
     def __init__(
         self,
-        n_iter=2,
+        n_iter=24,
         learning_rate=0.01,
-        batch_size=2,
+        batch_size=25,
         optimizer="adam",
         cost="cross_entropy",
         encoding_type="Angle",
         encoding_kwargs={},
         layer_defintion=("U_5", "psatz1", [8, 1, "eo_even"]),
-        noise=.01,
+        noise=0.01,
         seed=1,
     ):
         self.n_iter = n_iter
@@ -87,7 +88,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         # Initialize Coefficients
         if self.seed:
             torch.manual_seed(self.seed)
-        coefficients = torch.rand(self.coef_count_, requires_grad=True)        
+        coefficients = torch.rand(self.coef_count_, requires_grad=True)
         tmp_layer_info = [
             (layer_name, layer.layer_order)
             for layer_name, layer in self.layer_dict_.items()
@@ -100,7 +101,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
         else:
             self.response_wire_ = self.layer_dict_[final_layer].wire_pattern[0][1]
         # Set paramaters that saves training information
-        self.train_history_ = {"Iteration": [], "Cost": []}
+        self.train_history_ = {"Iteration": [], "Cost": [], "Time": []}
         self.test_history_ = {"Iteration": [], "Cost": []}
         self.coef_history_ = {}
 
@@ -121,7 +122,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             y_train_batch = torch.from_numpy(np.array(y)[batch_train_index])
 
             # Run model and get cost
-            #t0 = time.time()
+            t0 = time.time()
             opt.zero_grad()
             loss = self.coefficient_based_loss(
                 coefficients, X_train_batch, y_train_batch
@@ -134,18 +135,27 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             #     ),
             #     coefficients,
             # )
-            #t1 = time.time()
-            #print(t1 - t0)
+            t1 = time.time()
+            # print(t1 - t0)
             self.train_history_["Iteration"].append(it)
-            self.train_history_["Cost"].append(loss)
-            self.coef_history_[it] = coefficients
+            self.train_history_["Cost"].append(loss.detach().numpy().tolist())
+            self.train_history_["Time"].append(t1 - t0)
+            self.coef_history_[it] = coefficients.detach().numpy().tolist()
+            save_json(
+                "/home/matt/dev/projects/quantum-cnn/reports/execution_time/train_history.json",
+                self.train_history_,
+            )
+            save_json(
+                "/home/matt/dev/projects/quantum-cnn/reports/execution_time/coef_history.json",
+                self.coef_history_,
+            )
 
         best_iteration = self.train_history_["Iteration"][
             torch.argmin(torch.stack(self.train_history_["Cost"]))
         ]
         best_coefficients = self.coef_history_[best_iteration]
         # Set model coefficient corresponding to iteration that had lowest loss
-        self.coef_ = best_coefficients.detach().numpy()
+        self.coef_ = np.array(best_coefficients)
         self.is_fitted_ = True
         # `fit` should always return `self`
         return self
@@ -216,7 +226,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             # loss = cross_entropy(y, y_pred)
             # TODO assuming here index 1 corresponds to p(x)=1
             loss_fn = nn.BCELoss()
-            loss = loss_fn(y_pred[:,1], y.double())
+            loss = loss_fn(y_pred[:, 1], y.double())
             # eps = torch.finfo(float).eps
             # loss = -torch.sum(torch.column_stack((1 - y, y)) * torch.log(y_pred + eps))
             score = (-1 * (not (return_loss)) + return_loss % 2) * loss
@@ -381,7 +391,7 @@ DEVICE = qml.device("default.mixed", wires=8)
 # provider = IBMQ.load_account()
 
 
-@qml.qnode(DEVICE, interface='torch')
+@qml.qnode(DEVICE, interface="torch")
 def quantum_node(X, classifier):
     if getattr(classifier, "numpy", False):
         # If classifier needs to be deserialized
