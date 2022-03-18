@@ -3,6 +3,7 @@ import json
 from joblib import dump
 import numpy as np
 import pandas as pd
+import time
 
 from sklearn import svm
 from sklearn.linear_model import LogisticRegression
@@ -15,7 +16,14 @@ from preprocessing import apply_preprocessing
 
 
 def store_results(
-    config, model_id, clf, y_hat, samples_tfd, cf_matrix, model_configuration=None
+    config,
+    model_id,
+    clf,
+    y_hat,
+    samples_tfd,
+    cf_matrix,
+    model_configuration=None,
+    execution_time=None,
 ):
     """
     Method to store results to a desired path
@@ -37,6 +45,8 @@ def store_results(
         dump(
             model_configuration, f"{result_path}/{model_id}-model_configuration.joblib"
         )
+    if execution_time:
+        np.savetxt(f"{result_path}/execution_time.txt", np.array([execution_time]))
 
 
 def train_quantum(
@@ -101,8 +111,9 @@ def train_quantum(
         model, param_grid, n_jobs=n_jobs, cv=cv_folds
     )  # error_score="raise" <- for debugging
     # clf = model
+    t0 = time.time()
     clf.fit(samples_tfd.X_train, samples_tfd.y_train)
-
+    t1 = time.time()
     best_estimator = clf.best_estimator_
     # Get predictions
     y_hat = best_estimator.predict(samples_tfd.X_test)
@@ -117,4 +128,5 @@ def train_quantum(
             samples_tfd,
             cf_matrix,
             model_configuration=model_configuration,
+            execution_time=t1 - t0,
         )

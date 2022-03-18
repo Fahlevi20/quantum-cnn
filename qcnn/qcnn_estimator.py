@@ -147,7 +147,7 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             )
             loss.backward()
             opt.step()
-            t1 = time.time()
+            # t1 = time.time()
             # print(t1 - t0)
             # coefficients, cost_train = opt.step_and_cost(
             #     lambda current_coef: self.coefficient_based_loss(
@@ -155,20 +155,20 @@ class Qcnn_Classifier(BaseEstimator, ClassifierMixin):
             #     ),
             #     coefficients,
             # )
-            # t1 = time.time()
+            t1 = time.time()
             # print(t1 - t0)
             self.train_history_["Iteration"].append(it)
             self.train_history_["Cost"].append(loss.detach().numpy().tolist())
             self.train_history_["Time"].append(t1 - t0)
             self.coef_history_[it] = coefficients.detach().numpy().tolist()
-            save_json(
-                "/home/matt/dev/projects/quantum-cnn/reports/execution_time/train_history.json",
-                self.train_history_,
-            )
-            save_json(
-                "/home/matt/dev/projects/quantum-cnn/reports/execution_time/coef_history.json",
-                self.coef_history_,
-            )
+            # save_json(
+            #     "/home/matt/dev/projects/quantum-cnn/reports/execution_time/train_history.json",
+            #     self.train_history_,
+            # )
+            # save_json(
+            #     "/home/matt/dev/projects/quantum-cnn/reports/execution_time/coef_history.json",
+            #     self.coef_history_,
+            # )
 
         best_iteration = self.train_history_["Iteration"][
             np.argmin(self.train_history_["Cost"])
