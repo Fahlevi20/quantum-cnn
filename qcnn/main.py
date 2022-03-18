@@ -52,8 +52,10 @@ def main(args):
         target = config["data"].get("target_column")
         path = config["data"].get("path")
         colnames = config["data"].get("column_names", None)
+        set_name = config["data"].get("set_name", None)
+        kwargs = config["data"].get("kwargs", {})
         # TODO rename function to something more generic like read data
-        raw = get_2d_modelling_data(path, colnames)
+        raw = get_2d_modelling_data(path, colnames, set_name, **kwargs)
         # ==== Data Utility for data specific manipulations ====#
         """
         Datautility should be used only here to transform the data into a desirable train test set, then when the experiment is
