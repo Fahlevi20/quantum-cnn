@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from collections import namedtuple
 import itertools as it
-
+from data_utility import DataUtility
 
 from sklearn.model_selection import train_test_split
 
@@ -34,7 +34,15 @@ def load_json(path):
     return dict_obj
 
 
-def get_2d_modelling_data(path, colnames=None, set_name=None, **kwargs):
+def get_2d_modelling_data(
+    path,
+    colnames=None,
+    set_name=None,
+    test_size=0.3,
+    random_state=42,
+    target_column="label",
+    **kwargs,
+):
 
     if kwargs.get("from_file", False):
         filename, file_extension = os.path.splitext(path)
@@ -52,7 +60,19 @@ def get_2d_modelling_data(path, colnames=None, set_name=None, **kwargs):
         if set_name == "GTZAN":
 
             import librosa
-            genres = ['hiphop', 'classical', 'blues', 'metal', 'jazz', 'country', 'pop', 'rock', 'disco', 'reggae']
+
+            genres = [
+                "hiphop",
+                "classical",
+                "blues",
+                "metal",
+                "jazz",
+                "country",
+                "pop",
+                "rock",
+                "disco",
+                "reggae",
+            ]
             sr = kwargs.get("sr", 22050)
             n_fft = kwargs.get("n_fft", 2048)
             hop_length = kwargs.get("hop_length", 512)
@@ -244,7 +264,40 @@ def get_2d_modelling_data(path, colnames=None, set_name=None, **kwargs):
             if kwargs.get("save", False):
                 raw.to_csv(f"{path}/raw.csv")
 
-        return raw
+    # specific preprocessing for the sets
+    if set_name == "GTZAN":
+        """
+        Datautility should be used only here to transform the data into a desirable train test set, then when the experiment is
+        ran it is assumed that all "columns" and rows is as needs to be. This is specific data interaction from the user and should somehow
+        be abstracted out TODO
+        """
+        # This was for music data
+        columns_to_remove = ["filename", "length"]
+        data_utility = DataUtility(
+            raw, target=target_column, default_subset="modelling"
+        )
+        data_utility.update(
+            columns_to_remove, "included", {"value": False, "reason": "manual"}
+        )
+        # data_utility = DataUtility(raw, target=target, default_subset="modelling")
+        X, y, _ = data_utility.get_samples(raw)
+        # ==== End Data Utility ====#
+        # Create test set
+        samples = create_train_test_samples(
+            X, y, test_size=test_size, random_state=random_state
+        )
+    elif set_name == "HTRU2":
+        data_utility = DataUtility(
+            raw, target=target_column, default_subset="modelling"
+        )
+        # data_utility = DataUtility(raw, target=target, default_subset="modelling")
+        X, y, _ = data_utility.get_samples(raw)
+        # ==== End Data Utility ====#
+        # Create test set
+        samples = create_train_test_samples(
+            X, y, test_size=test_size, random_state=random_state
+        )
+    return samples
 
 
 def create_train_test_samples(X, y, test_size=0.3, random_state=42):
