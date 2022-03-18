@@ -62,7 +62,7 @@ def run_quantum_model(
     classification_type = config["model"].get("classification_type", None)
     model_time = {}
 
-    for circ_pool_combo in it.product(circuit_list, pooling_list, wire_pattern_list):
+    for circ_pool_combo in it.product(circuit_list, pooling_list, list(ParameterGrid(wire_pattern_list))):
         model_id = uuid.uuid4().hex
         # model name depends on circ_pool_combo which causes some redundancy in the code, i.e. it can be improved by deriving the name earlier
         model_configuration = Model_Configurations(
