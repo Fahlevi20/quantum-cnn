@@ -300,8 +300,8 @@ def get_image_data(path, set_name="mnist", **kwargs):
                 X = np.array(X)
                 y = np.array(y)
                 if kwargs.get("save", False):
-                    np.save(f"{path}", X)
-                    np.save(f"{path}", y)
+                    np.save(f"{path}/X.npy", X)
+                    np.save(f"{path}/y.npy", y)
 
             samples = create_train_test_samples(
                 X,
