@@ -191,7 +191,9 @@ def get_result_table_target_pairs(data, each_var, group_var, metric, group_filte
     return display_table
 
 
-def plot_triangle_accuracies(plot_data, figsize=(10, 10), title="Accuracy for pairs of genre's"):
+def plot_triangle_accuracies(
+    plot_data, figsize=(10, 10), title="Accuracy for pairs of genre's"
+):
     mask = np.zeros_like(plot_data)
     mask[np.triu_indices_from(mask)] = True
     mask[mask.shape[0] - 1, mask.shape[1] - 1] = False
@@ -258,7 +260,9 @@ def plot_loss(data, groupby, group_filter=[], figsize=(30, 5), save_plot=False):
                 axes[0].set_title(
                     f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration"
                 )
-                axes[0].savefig(f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration.svg")
+                axes[0].savefig(
+                    f"{col}-{'-'.join(group_filter)} Train Cost Per Iteration.svg"
+                )
                 sns.lineplot(
                     ax=axes[1],
                     data=pd.melt(
@@ -276,7 +280,7 @@ def plot_loss(data, groupby, group_filter=[], figsize=(30, 5), save_plot=False):
                 axes[1].set_title(
                     f"{col}-{'-'.join(group_filter)} Test Cost Per Iteration"
                 )
-            if save_plot==True:
+            if save_plot == True:
                 fig.savefig(f"{col}-{'-'.join(group_filter)}.svg")
 
 
@@ -428,9 +432,11 @@ def gather_results_118_135_deprecated(
         tmp_result = model_configuration._asdict()
         tmp_result["model_name"] = model_name
 
-        if not(type(model_configuration.target_pair[0])==str):
+        if not (type(model_configuration.target_pair[0]) == str):
             # if target pair are ints
-            tmp_result["target_pair_str"] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
+            tmp_result[
+                "target_pair_str"
+            ] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
         else:
             tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
 
@@ -934,9 +940,11 @@ def gather_results_118_135(
         tmp_result = model_configuration._asdict()
         tmp_result["model_name"] = model_name
 
-        if not(type(model_configuration.target_pair[0])==str):
+        if not (type(model_configuration.target_pair[0]) == str):
             # if target pair are ints
-            tmp_result["target_pair_str"] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
+            tmp_result[
+                "target_pair_str"
+            ] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
         else:
             tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
         if model_configuration.additional_structure:
@@ -966,6 +974,7 @@ def gather_results_118_135(
         result_data = result_data.append(tmp_result, ignore_index=True)
 
     return result_data.copy()
+
 
 def gather_result_list_1000(
     exp_id, path_experiments=f"/home/matt/dev/projects/quantum-cnn/experiments"
@@ -1007,6 +1016,7 @@ def gather_result_list_1000(
         ]
     return result_list
 
+
 def gather_resultdf_1000(result_list):
     result_data = pd.DataFrame(
         {
@@ -1028,10 +1038,6 @@ def gather_resultdf_1000(result_list):
             "mean_test_score": [],
             "std_test_score": [],
             "params": [],
-            "accuracy": [],
-            "precision": [],
-            "recall": [],
-            "f1": [],
             "loss_train_history": [],
         }
     )
@@ -1040,18 +1046,17 @@ def gather_resultdf_1000(result_list):
         clf = result.clf
         model_configuration = result.model_configuration
         samples_tfd = result.samples_tfd
-        model_name = result.model_name
-
-        precision, recall, fscore, support = precision_recall_fscore_support(
-            samples_tfd.y_test, y_test_hat, average="binary"  # TODO multiclass
-        )
-        accuracy = accuracy_score(samples_tfd.y_test, y_test_hat)
+        model_name = result.model_name        
+        cf_matrix = get_cf_matrix(samples_tfd.y_test,y_test_hat)
+        accuracy, TPR, TNR, precision, f1_score, gmean, informedness, fpr = get_confusion_matrix_stats(cf_matrix=cf_matrix)
         tmp_result = model_configuration._asdict()
         tmp_result["model_name"] = model_name
 
-        if not(type(model_configuration.target_pair[0])==str):
+        if not (type(model_configuration.target_pair[0]) == str):
             # if target pair are ints
-            tmp_result["target_pair_str"] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
+            tmp_result[
+                "target_pair_str"
+            ] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
         else:
             tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
         if model_configuration.additional_structure:
@@ -1074,9 +1079,147 @@ def gather_resultdf_1000(result_list):
         # tmp_result["params"] = clf.cv_results_["params"][clf.best_index_]
 
         tmp_result["accuracy"] = accuracy
+        tmp_result["TPR"] = TPR
+        tmp_result["TNR"] = TNR
         tmp_result["precision"] = precision
-        tmp_result["recall"] = recall
-        tmp_result["f1"] = fscore
+        tmp_result["f1_score"] = f1_score
+        tmp_result["gmean"] = gmean
+        tmp_result["informedness"] = informedness
+        tmp_result["fpr"] = fpr
+        tmp_result["loss_train_history"] = None  # set for quantum
+        result_data = result_data.append(tmp_result, ignore_index=True)
+
+    return result_data.copy()
+
+
+def get_cf_matrix(y_true, y_hat):
+    """Get confusion matrix
+
+    Args:
+        y_true (np.array(int(0,1))): true labels as 0 or 1
+        y_hat (np.array(int(0,1))): estimated labels as 0 or 1
+
+    Returns:
+        np.array(2*2): 2 by 2 matrix containing TN,FP,
+                                                FN,TP
+    """
+    TP = np.sum(np.array(y_hat)[y_true == 1] == 1)
+    TN = np.sum(np.array(y_hat)[y_true == 0] == 0)
+    FP = np.sum(np.array(y_hat)[y_true == 0] == 1)
+    FN = np.sum(np.array(y_hat)[y_true == 1] == 0)
+    return np.array([[TN, FP], [FN, TP]])
+
+
+def get_confusion_matrix_stats(cf_matrix):
+    """Generate typical confusion matrix stats
+
+    Args:
+        cf_matrix (np.array(2 int * 2 int)): Confusion matrix as 2 dimensional numpy array, consisting of counts    
+
+    Returns:
+        tuple(floats): accuracy, TPR, TNR, precision, f1_score, gmean, informedness
+    """
+    TN, FP, FN, TP = cf_matrix[0, 0], cf_matrix[0, 1], cf_matrix[1, 0], cf_matrix[1, 1]
+    accuracy = (TP + TN) / (TP + FP + FN + TN)  # accuracy
+    precision = TP / (
+        TP + FP
+    )  # correctly classified positives out of all classified positives
+    TPR = TP / (
+        TP + FN
+    )  # correctly classified positives out of all actual positives aslo called TPR, sensitivit, recall
+    TNR = TN / (
+        TN + FP
+    )  # specificity, correctly classified negatives out of all negatives
+    f1_score = (
+        2 * precision * TPR / (precision + TPR)
+    )  # measure of accuracy that considers both precision and recall
+    fpr = FP / (
+        FP + TN
+    )  # Fraction of incorrectly classified positives out of all actual negatives (0's).
+    gmean = np.sqrt(
+        TPR * TNR
+    )  # Imbalanced data metric describic ratio between positive and negative accuracy i.e
+    # recall * TNR
+
+    informedness = TPR + TNR - 1
+    return accuracy, TPR, TNR, precision, f1_score, gmean, informedness, fpr
+
+
+def gather_resultdf_991000(result_list):
+    result_data = pd.DataFrame(
+        {
+            "model_name": [],
+            "model_type": [],
+            "algorithm": [],
+            "classification_type": [],
+            "embedding_type": [],
+            "scaler_method": [],
+            "scaler_param_str": [],
+            "selection_method": [],
+            "selection_param_str": [],
+            "target_pair": [],
+            "additional_structure": [],
+            "additional_structure_str": [],
+            "wire_config": [],
+            "wire_config_str": [],
+            "target_pair_str": [],
+            "mean_test_score": [],
+            "std_test_score": [],
+            "params": [],
+            "loss_train_history": [],
+        }
+    )
+    for result in result_list:
+        y_test_hat = result.y_test_hat
+        clf = result.clf
+        model_configuration = result.model_configuration
+        samples_tfd = result.samples_tfd
+        model_name = result.model_name
+        cf_matrix = get_cf_matrix(samples_tfd.y_test,y_test_hat)
+        accuracy, TPR, TNR, precision, f1_score, gmean, informedness, fpr = get_confusion_matrix_stats(cf_matrix=cf_matrix)
+
+        tmp_result = model_configuration._asdict()
+        tmp_result["c_step"]=result.model_configuration.additional_structure[2]["c_step"]
+        tmp_result["n_wires"]=result.model_configuration.additional_structure[2]["n_wires"]
+        tmp_result["p_step"]=result.model_configuration.additional_structure[2]["p_step"]
+        tmp_result["pool_pattern"]=result.model_configuration.additional_structure[2]["pool_pattern"]
+        tmp_result["wire_to_cut"]=result.model_configuration.additional_structure[2]["wire_to_cut"]
+
+        if not (type(model_configuration.target_pair[0]) == str):
+            # if target pair are ints
+            tmp_result[
+                "target_pair_str"
+            ] = f"{model_configuration.target_pair[0]}_{model_configuration.target_pair[1]}"
+        else:
+            tmp_result["target_pair_str"] = "_".join(model_configuration.target_pair)
+        if model_configuration.additional_structure:
+            tmp_result[
+                "additional_structure_str"
+            ] = f"{model_configuration.additional_structure[0]}_{model_configuration.additional_structure[1]}_{model_configuration.additional_structure[2]}"
+            tmp_result["wire_config"] = model_configuration.additional_structure[2]
+            tmp_result["wire_config_str"] = "-".join(
+                [
+                    str(item)
+                    for item in model_configuration.additional_structure[2].values()
+                ]
+            )
+        tmp_result["mean_test_score"] = clf.cv_results_["mean_test_score"][
+            clf.best_index_
+        ]
+        tmp_result["std_test_score"] = clf.cv_results_["std_test_score"][
+            clf.best_index_
+        ]
+        tmp_result["params"] = clf.cv_results_["params"][clf.best_index_]
+
+        tmp_result["accuracy"] = accuracy
+        tmp_result["TPR"] = TPR
+        tmp_result["TNR"] = TNR
+        tmp_result["precision"] = precision
+        tmp_result["f1_score"] = f1_score
+        tmp_result["gmean"] = gmean
+        tmp_result["informedness"] = informedness
+        tmp_result["fpr"] = fpr
+
         tmp_result["loss_train_history"] = None  # set for quantum
         result_data = result_data.append(tmp_result, ignore_index=True)
 
@@ -1142,7 +1285,7 @@ def get_wire_combos_graph(
             # this should update TODO
             cut_wires = [x[0] for x in wire_combos[layer]]
             node_sizes = [
-                100 if (ind in cut_wires) else node_size
+                200 if (ind in cut_wires) else node_size
                 for ind, node_size in zip(range(n_qbits), node_sizes)
             ]
         else:
