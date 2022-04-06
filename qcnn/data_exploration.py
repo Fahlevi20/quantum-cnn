@@ -388,7 +388,9 @@ fig, ax = plt.subplots()
 img = librosa.display.specshow(
     mel_sdb, sr=sample_rate, hop_length=hop_length, x_axis="time", y_axis="mel"
 )
-plt.axis('off')
+ax.set_title("Mel spetogram")
+#ax.set_xlabel("Time")
+#plt.axis('off')
 fig.colorbar(img, ax=ax)
 
 # plt.colorbar(format='%+2.0f dB')
@@ -435,16 +437,143 @@ img = librosa.display.specshow(
 fig.colorbar(img, ax=ax, format="%+2.0f dB")
 ax.set(title="Mel-frequency spectrogram")
 
+# Display
 # %%
-librosa.display.waveshow(audio_ts, sr=sample_rate)
-mel_feat = librosa.feature.melspectrogram(y=audio_ts, sr=sample_rate)
+params = {'legend.fontsize': 18,
+        #'figure.figsize': (9, 6),
+         'axes.labelsize': 16,
+         'axes.titlesize':22,
+         'xtick.labelsize':'large',
+         'ytick.labelsize':'large'}
+plt.rcParams.update(params)
+audio_ts, sample_rate = librosa.load(
+    f"{audio_path}/{genre}/{filename}.{ext}", sr=sample_rate
+)
+audio_ts, _ = librosa.effects.trim(audio_ts)
+fig, ax = plt.subplots(figsize=(14,4))
+img = librosa.display.waveshow(audio_ts, sr=sample_rate, ax=ax, color="#28708a")
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Amplitude")
+ax.set_title("Audio Signal")
+fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220202/audio_signal.svg")
+# mel_feat = librosa.feature.melspectrogram(y=audio_ts, sr=sample_rate)
 
 # %%
+params = {'legend.fontsize': 18,
+        'figure.figsize': (9, 6),
+         'axes.labelsize': 18,
+         'axes.titlesize':24,
+         'xtick.labelsize':'x-large',
+         'ytick.labelsize':'x-large'}
+plt.rcParams.update(params)
+
+# %%
+n_fft = 2048
+hop_length = 2048
+n_mels = 8
+audio_ts, _ = librosa.effects.trim(audio_ts)
+# First 3 seconds
+audio_ts = audio_ts[0 : sample_rate * 3]
+mel_spec = librosa.feature.melspectrogram(
+    y=audio_ts,
+    sr=sample_rate,
+    n_fft=n_fft,
+    hop_length=hop_length,
+    n_mels=n_mels,
+    fmax=8000,
+)
+mel_sdb = librosa.power_to_db(mel_spec, ref=np.max)
+fig, ax = plt.subplots()
+img = librosa.display.specshow(
+    mel_sdb, sr=sample_rate, hop_length=hop_length, x_axis="time", y_axis="mel"
+)
+ax.set_title("Mel spectogram")
+
+fig.colorbar(img, ax=ax)
+fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220202/mel_3s.svg")
+
+# %%
+params = {'legend.fontsize': 18,
+        'figure.figsize': (9, 6),
+         'axes.labelsize': 18,
+         'axes.titlesize':24,
+         'xtick.labelsize':'x-large',
+         'ytick.labelsize':'x-large'}
+plt.rcParams.update(params)
+
+audio_ts, sample_rate = librosa.load(
+    f"{audio_path}/{genre}/{filename}.{ext}"
+)
+n_fft = 2048
+hop_length = 512
+audio_ts, _ = librosa.effects.trim(audio_ts)
+# First 3 seconds
+#audio_ts = audio_ts[0 : sample_rate * 3]
+mel_spec = librosa.feature.melspectrogram(
+    y=audio_ts,
+    sr=sample_rate,
+    n_fft=n_fft,
+    hop_length=hop_length,
+    fmax=8000,
+)
+mel_sdb = librosa.power_to_db(mel_spec, ref=np.max)
+fig, ax = plt.subplots()
+img = librosa.display.specshow(
+    mel_sdb, sr=sample_rate, hop_length=hop_length, x_axis="time", y_axis="mel"
+)
+ax.set_title("Mel spectogram")
+
+fig.colorbar(img, ax=ax)
+fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220202/mel_full.svg")
+
+# %%
+params = {'legend.fontsize': 18,
+        'figure.figsize': (9, 6),
+         'axes.labelsize': 18,
+         'axes.titlesize':24,
+         'xtick.labelsize':'x-large',
+         'ytick.labelsize':'x-large'}
+plt.rcParams.update(params)
+
+audio_ts, sample_rate = librosa.load(
+    f"{audio_path}/{genre}/{filename}.{ext}"
+)
+n_fft = 2048
+hop_length = 512
+audio_ts, _ = librosa.effects.trim(audio_ts)
+# First 3 seconds
+audio_ts = audio_ts[0 : sample_rate * 3]
+mel_spec = librosa.feature.melspectrogram(
+    y=audio_ts,
+    sr=sample_rate,
+    n_fft=n_fft,
+    hop_length=hop_length,
+    fmax=8000,
+)
+mel_sdb = librosa.power_to_db(mel_spec, ref=np.max)
+fig, ax = plt.subplots()
+img = librosa.display.specshow(
+    mel_sdb, sr=sample_rate, hop_length=hop_length, x_axis="time", y_axis="mel"
+)
+ax.set_title("Mel spectogram")
+
+fig.colorbar(img, ax=ax)
+fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220202/mel_full_3s.svg")
+# %%
+# Audio signal waveplot amplitude over time
 X = librosa.stft(audio_ts)
 Xdb = librosa.amplitude_to_db(abs(X))
 plt.figure(figsize=(14, 5))
 librosa.display.specshow(Xdb, sr=sample_rate, x_axis="time", y_axis="log")
 plt.colorbar()
+
+# Audio signal waveplot amplitude over time
+X = librosa.stft(audio_ts)
+Xdb = librosa.amplitude_to_db(abs(X))
+plt.figure(figsize=(14, 5))
+librosa.display.specshow(Xdb, sr=sample_rate, x_axis="time", y_axis="log")
+plt.colorbar()
+
 
 # %%
 mel_feat = librosa.feature.melspectrogram(y=audio_ts, sr=sample_rate)

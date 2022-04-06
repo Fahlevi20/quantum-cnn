@@ -2,6 +2,8 @@
 import pennylane as qml
 from math import log2
 import numpy as np
+from sympy import true
+import itertools as it
 
 # Specify options
 
@@ -101,13 +103,83 @@ def get_wire_combos(n_wires, c_step, pool_pattern, p_step=0, wire_to_cut=1):
     return wire_combos
 
 
+def get_qcnn_graphs(n_wires, c_step, pool_pattern, p_step=0):
+    """ """
+    if pool_pattern == "left":
+        # 0 1 2 3 4 5 6 7
+        # x x x x
+        pool_filter = lambda arr: arr[0 : len(arr) // 2 : 1]
+    elif pool_pattern == "right":
+        # 0 1 2 3 4 5 6 7
+        #         x x x x
+        pool_filter = lambda arr: arr[len(arr) : len(arr) // 2 - 1 : -1]
+    elif pool_pattern == "eo_even":
+        # 0 1 2 3 4 5 6 7
+        # x   x   x   x
+        pool_filter = lambda arr: arr[0::2]
+    elif pool_pattern == "eo_odd":
+        # 0 1 2 3 4 5 6 7
+        #   x   x   x   x
+        pool_filter = lambda arr: arr[1::2]
+    elif pool_pattern == "inside":
+        # 0 1 2 3 4 5 6 7
+        #     x x x x
+        pool_filter = lambda arr: arr[
+            len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1
+        ]  # inside
+    elif pool_pattern == "outside":
+        # 0 1 2 3 4 5 6 7
+        # x x         x x
+        pool_filter = lambda arr: [
+            item
+            for item in arr
+            if not (
+                item
+                in arr[
+                    len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1
+                ]
+            )
+        ]  # outside
+
+    graphs = {}
+    layer = 1
+    Qc_l = [i + 1 for i in range(n_wires)]
+    Qp_l = Qc_l.copy()
+    while len(Qc_l) > 1:
+
+        nq_avaiable = len(Qc_l)
+        mod_nq = lambda x: x % nq_avaiable
+        Ec_l = [(Qc_l[i], Qc_l[mod_nq(i + c_step)]) for i in range(nq_avaiable)]
+        if len(Ec_l) == 2 and Ec_l[0][0:] == Ec_l[1][1::-1]:
+            # TODO improve this, the issue is (1,2) and (2,1) with this logic, there might be a better
+            # TODO way to traverse the graph in a general way
+            Ec_l = [Ec_l[0]]
+        measured_q = pool_filter(Qc_l)
+        remaining_q = [q for q in Qc_l if not (q in measured_q)]
+        Ep_l = [
+            (measured_q[i], remaining_q[(i + p_step) % len(remaining_q)])
+            for i in range(len(measured_q))
+        ]
+        # Convolution graph
+        C_l = (Qc_l, Ec_l)
+        # Pooling graph
+        P_l = (Qp_l, Ep_l)
+        # Graph for layer
+        G_l = (C_l, P_l)
+        graphs[layer] = G_l
+        # set avaiable qubits for next layer
+        layer = layer + 1
+        Qc_l = [j for (i, j) in Ep_l]
+        Qp_l = Qc_l.copy()
+    return graphs
+
+
 def c_1(circuit, params):
     circuit(params, wires=[0, 7])
     for i in range(0, 8, 2):
         circuit(params, wires=[i, i + 1])
     for i in range(1, 7, 2):
         circuit(params, wires=[i, i + 1])
-       
 
 
 def c_2(circuit, params):

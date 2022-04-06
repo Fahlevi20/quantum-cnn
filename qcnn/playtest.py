@@ -654,9 +654,9 @@ import matplotlib.pyplot as plt
 # (qcnn, U_5_psatz1_{'n_wires': 8, 'c_step': 1, 'pool_pattern': 'right', 'p_step': 0, 'wire_to_cut': 0}, tree)	0.976744	0.812500	0.894622
 n_wires = 8
 c_step = 1
-p_step = 3
-pool_pattern = "eo_even"
-wire_to_cut = 1
+p_step = 0
+pool_pattern = "eo_odd"
+wire_to_cut = 0
 
 wire_combos = get_wire_combos(
     n_wires, c_step, pool_pattern, p_step=p_step, wire_to_cut=wire_to_cut
@@ -944,8 +944,8 @@ X = X / np.max(X) * np.pi / 2
 # set a light
 X = torch.from_numpy(X)
 y = torch.from_numpy(y)
-phi = torch.tensor(.5, requires_grad=True)
-theta = torch.tensor(.1, requires_grad=True)
+phi = torch.tensor(0.5, requires_grad=True)
+theta = torch.tensor(0.1, requires_grad=True)
 params = [phi, theta]
 opt = torch.optim.Adam(params, lr=0.1)
 
@@ -953,13 +953,14 @@ opt = torch.optim.Adam(params, lr=0.1)
 # %%
 # Run circuit
 import time
+
 t0 = time.time()
 
 y_pred = torch.stack([q_node(x, params) for x in X])
 eps = torch.finfo(float).eps
-loss = -torch.sum(torch.column_stack((1-y,y)) * torch.log(y_pred+eps))
+loss = -torch.sum(torch.column_stack((1 - y, y)) * torch.log(y_pred + eps))
 opt.zero_grad()
-#vloss = loss(params, X, y)
+# vloss = loss(params, X, y)
 loss.backward()
 opt.step()
 # loss(params, X, y)
@@ -1077,5 +1078,133 @@ for it in range(25):
     print(cost_train)
 # %%
 
+
+# %%
+from circuit_presets import get_wire_combos, get_qcnn_graphs
+from reporting_functions import get_wire_combos_graph, get_circuit_diagram
+import networkx as nx
+import matplotlib.pyplot as plt
+from qiskit import QuantumCircuit, QuantumRegister
+from qiskit.circuit import Gate
+
+# (qcnn, U_5_psatz1_{'n_wires': 8, 'c_step': 1, 'pool_pattern': 'right', 'p_step': 0, 'wire_to_cut': 0}, tree)	0.976744	0.812500	0.894622
+n_wires = 8
+c_step = 1
+p_step = 0
+pool_pattern = "right"
+wire_to_cut = 0
+
+wire_combos = get_wire_combos(
+    n_wires, c_step, pool_pattern, p_step=p_step, wire_to_cut=wire_to_cut
+)
+n_graphs = get_wire_combos_graph(wire_combos, n_qbits=n_wires)
+
+graphs = get_qcnn_graphs( n_wires, c_step, pool_pattern, p_step=p_step)
+for layer in n_graphs.keys():
+    fig, ax = plt.subplots(figsize=(7, 7))
+    tmp_g = n_graphs[layer]
+    # This maps labels from 0..7 to 1..8
+    a_1 = nx.relabel_nodes(tmp_g[0], lambda x: x + 1)
+    a_2 = {key + 1: value for key, value in tmp_g[1].items()}
+    nx.draw(
+        a_1,
+        a_2,
+        with_labels=True,
+        node_size=tmp_g[2],
+        edge_color="#000000",
+        edgecolors="#000000",
+        node_color=tmp_g[3],
+        width=1.5,
+    )
+    fig.savefig(
+        f"/home/matt/dev/projects/quantum-cnn/reports/20220405-relabeled_digraphs/{pool_pattern}/{n_wires}-{pool_pattern}-{c_step}-{p_step}-{wire_to_cut}-{layer}.svg",
+        transparent=True,
+    )
+    
+# %%
+# = get_wire_combos_graph(wire_combos, n_qbits=n_wires)
+import numpy as np
+n_qbits = n_wires
+conv_color="#0096ff"
+pool_color="#ff7e79"
+graphs = get_qcnn_graphs(n_wires, c_step, pool_pattern, p_step=p_step)
+
+# Change order around a circle, this way you start at x=0 then move left around
+theta_0 = 2 / n_qbits
+theta_step = 1 / n_qbits
+pos = {
+    ind+1: np.array(
+        [
+            np.cos(2 * np.pi * (theta_0 + ind * theta_step)),
+            np.sin(2 * np.pi * (theta_0 + ind * theta_step)),
+        ]
+    )
+    for ind in range(n_qbits)
+}
+Qc_0=list(graphs.values())[0][0][0]
+for layer, ((Qc_l,Ec_l), (Qp_l,Ep_l)) in graphs.items():
+
+    nx_c_graph = nx.DiGraph()
+    nx_p_graph = nx.DiGraph()    
+    
+    nx_c_graph.add_nodes_from(Qc_0)
+    nx_c_graph.add_edges_from(Ec_l)
+    node_c_sizes = [
+            1000 if (q in Qc_l) else 200
+            for q in Qc_0
+        ]
+    
+    nx_p_graph.add_nodes_from(Qc_0)
+    nx_p_graph.add_edges_from(Ep_l)
+    node_p_sizes = [
+            1000 if (q in [j for (i,j) in Ep_l]) else 200
+            for q in Qc_0
+        ]
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    nx.draw(
+        nx_c_graph,
+        pos,
+        with_labels=True,
+        node_size=node_c_sizes,
+        edge_color="#000000",
+        edgecolors="#000000",
+        node_color=conv_color,
+        width=1.5,
+    )
+    fig, ax = plt.subplots(figsize=(7, 7))
+    nx.draw(
+        nx_p_graph,
+        pos,
+        with_labels=True,
+        node_size=node_p_sizes,
+        edge_color="#000000",
+        edgecolors="#000000",
+        node_color=pool_color,
+        width=1.5,
+    )
+# %%
+qr = QuantumRegister(n_wires, "q")
+q_circuit = QuantumCircuit(qr)
+
+disp_color = {}
+for layer, wires in wire_combos.items():
+    if layer.split("_")[0].upper() == "P":
+        disp_color[layer] = "#ff7e79"
+    else:
+        disp_color[layer] = "#0096ff"
+    for wire_connection in wires:
+        q_circuit.append(
+            Gate(name=layer, num_qubits=2, params=[]),
+            (qr[wire_connection[0]], qr[wire_connection[1]]),
+        )
+        q_circuit.barrier()
+
+q_circuit.draw(
+    output="mpl",
+    plot_barriers=False,
+    justify="none",
+    style={"displaycolor": disp_color, "linecolor": "#000000"},
+)
 
 # %%
