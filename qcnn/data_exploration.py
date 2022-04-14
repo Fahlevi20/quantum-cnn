@@ -461,8 +461,8 @@ fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220202/audio_signal.
 # %%
 params = {'legend.fontsize': 18,
         'figure.figsize': (9, 6),
-         'axes.labelsize': 18,
-         'axes.titlesize':24,
+         'axes.labelsize': 26,
+         'axes.titlesize':32,
          'xtick.labelsize':'x-large',
          'ytick.labelsize':'x-large'}
 plt.rcParams.update(params)
@@ -495,8 +495,8 @@ fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220202/mel_3s.svg")
 # %%
 params = {'legend.fontsize': 18,
         'figure.figsize': (9, 6),
-         'axes.labelsize': 18,
-         'axes.titlesize':24,
+         'axes.labelsize': 26,
+         'axes.titlesize':32,
          'xtick.labelsize':'x-large',
          'ytick.labelsize':'x-large'}
 plt.rcParams.update(params)
@@ -529,8 +529,8 @@ fig.savefig(f"/home/matt/dev/projects/quantum-cnn/reports/20220202/mel_full.svg"
 # %%
 params = {'legend.fontsize': 18,
         'figure.figsize': (9, 6),
-         'axes.labelsize': 18,
-         'axes.titlesize':24,
+         'axes.labelsize': 26,
+         'axes.titlesize':32,
          'xtick.labelsize':'x-large',
          'ytick.labelsize':'x-large'}
 plt.rcParams.update(params)
