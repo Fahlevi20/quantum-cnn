@@ -6,13 +6,22 @@
     "configurations": [      
 
 
+
         {
-            "name": "Python: 304",
+            "name": "Python: 305",
             "type": "python",
             "request": "launch",
             "program": "qcnn/main.py",
             "console": "integratedTerminal",
-            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/304/experiment.json"]
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/305/experiment.json"]
+        },
+        {
+            "name": "Python: 1004",
+            "type": "python",
+            "request": "launch",
+            "program": "qcnn/main.py",
+            "console": "integratedTerminal",
+            "args": ["--config_path","/home/matt/dev/projects/quantum-cnn/experiments/1004/experiment.json"]
         },
         {
             "name": "Python: 303",
